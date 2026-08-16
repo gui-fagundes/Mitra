@@ -1,0 +1,31 @@
+# Hooks executados em cada `git commit` (após rodar `pre-commit install` uma vez).
+# Rodar em tudo: uv run --project backend pre-commit run --all-files
+# Pular no commit atual (uso raro): git commit --no-verify
+
+repos:
+  # Higiene genérica de arquivos (aplicado a todo o repo)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        # tsconfig.* usam JSONC (JSON com comentários), incompatível com o parser padrão
+        exclude: ^frontend/tsconfig.*\.json$
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-merge-conflict
+
+  # Ruff: lint + format do Python, restrito ao backend/
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/

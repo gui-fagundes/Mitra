@@ -1,0 +1,55 @@
+# ==============================================================================
+# Backend (Python / uv / SQLAlchemy / Alembic)
+# ==============================================================================
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Environment secrets (mantém .env.example versionado)
+.env
+.env.local
+
+# ==============================================================================
+# Frontend (Vite / Vue / TypeScript)
+# ==============================================================================
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==============================================================================
+# Editors / OS
+# ==============================================================================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
