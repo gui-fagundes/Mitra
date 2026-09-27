@@ -1,20 +1,81 @@
 @import "tailwindcss";
+@import "font-awesome/css/font-awesome.min.css";
 
+/* ------------------------------------------------------------------
+   Mitra — design tokens (Tailwind v4 @theme)
+   As chaves aqui viram tanto CSS custom properties (--color-gold)
+   quanto utilitários Tailwind (bg-gold, text-gold, border-gold).
+   ------------------------------------------------------------------ */
 @theme {
-  --color-accent: #aa3bff;
-  --color-accent-hover: #9333ea;
+  --color-bg: #f5f3ee;
+  --color-surface: #ffffff;
+  --color-surface-2: #eae7de;
+  --color-ink: #171614;
+  --color-ink-soft: #4a4744;
+  --color-muted: #8c8880;
+  --color-rule: #d4d0c4;
+  --color-rule-soft: #e4e0d3;
+  --color-gold: #c89b3c;
+  --color-gold-soft: #f1e0af;
+  --color-gold-ink: #5a4210;
+  --color-ph: #dad6c9;
+  --color-good: #3b7a57;
+  --color-good-soft: #ddeae1;
+
+  --font-sans: "Josefin Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
-html, body {
+html,
+body {
   height: 100%;
 }
 
 body {
-  @apply bg-white text-slate-700 antialiased;
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    @apply bg-slate-900 text-slate-300;
-  }
+/* ------------------------------------------------------------------
+   Utilitário .mono — textos-caixa em IBM Plex Mono.
+   Usado para labels de seção, KPIs, e detalhes técnicos.
+   ------------------------------------------------------------------ */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.mono-sm {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+/* Números em IBM Plex Mono (contadores, valores) */
+.num {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Placeholder cinza para foto/avatar ausente */
+.ph {
+  background-color: var(--color-ph);
+}
+
+/* Focus visível acessível em todo interativo */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
 }
