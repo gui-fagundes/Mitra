@@ -1,6 +1,6 @@
 """cidade, taxonomia e expansao do usuario
 
-Onda 1 (docs/backend-plan.md): cria `cidade`, `categoria` e `servico` já com os
+Etapa "Conta, cidade e taxonomia" (docs/backend-plan.md): cria `cidade`, `categoria` e `servico` já com os
 dados iniciais do piloto, e expande `usuario` com contato, cidade, aceite dos
 termos (RF-DP-01), preferências e último acesso.
 

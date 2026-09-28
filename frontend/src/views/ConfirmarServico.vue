@@ -33,7 +33,7 @@ const ciclo = [
 ]
 
 function confirmar() {
-  // Onda 2 mock: só volta para a área do cliente.
+  // Mock: só volta para a área do cliente (a confirmação real vem com a etapa de contratação).
   router.push({ name: 'conta-cliente' })
 }
 </script>

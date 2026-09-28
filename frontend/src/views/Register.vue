@@ -10,7 +10,7 @@ import BrandMark from '../components/BrandMark.vue'
 const router = useRouter()
 const sessao = useSessaoStore()
 
-// Onda 2: o papel passa a ser enviado no cadastro (cria prestador_perfil).
+// O papel ainda não é enviado: passa a valer com o perfil do prestador.
 type Papel = 'cliente' | 'prestador' | 'ambos'
 const papel = ref<Papel>('cliente')
 
