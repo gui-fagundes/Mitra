@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { authApi } from '../api/auth'
-import { useAuthStore } from '../stores/auth'
+import { contaApi } from '../api/conta'
+import { useSessaoStore } from '../stores/sessao'
 import PublicNav from '../components/PublicNav.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import StarRating from '../components/StarRating.vue'
 
 const router = useRouter()
-const auth = useAuthStore()
+const sessao = useSessaoStore()
 
 type Aba = 'contratacoes' | 'dados' | 'preferencias'
 const aba = ref<Aba>('contratacoes')
@@ -47,9 +47,9 @@ const contratacoes = [
 
 async function sair() {
   try {
-    await authApi.logout()
+    await contaApi.sair()
   } finally {
-    auth.clearUser()
+    sessao.limparUsuario()
     router.push('/login')
   }
 }
@@ -68,7 +68,7 @@ async function sair() {
     <div class="flex items-center gap-3.5 border-b border-rule-soft bg-surface px-5 py-4 md:hidden">
       <div class="ph h-14 w-14 shrink-0 rounded-full"></div>
       <div class="min-w-0 flex-1">
-        <div class="text-base font-semibold">{{ auth.user?.nome ?? '[Seu nome]' }}</div>
+        <div class="text-base font-semibold">{{ sessao.usuario?.nome ?? '[Seu nome]' }}</div>
         <div class="text-xs text-muted">Rio Grande, RS · cliente</div>
       </div>
     </div>
@@ -80,7 +80,7 @@ async function sair() {
         <div class="flex items-center gap-3 px-1.5">
           <div class="ph h-11 w-11 shrink-0 rounded-full"></div>
           <div class="min-w-0">
-            <div class="truncate text-sm font-semibold">{{ auth.user?.nome ?? '[Seu nome]' }}</div>
+            <div class="truncate text-sm font-semibold">{{ sessao.usuario?.nome ?? '[Seu nome]' }}</div>
             <div class="text-xs text-muted">Cliente</div>
           </div>
         </div>
@@ -224,13 +224,13 @@ async function sair() {
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">Nome completo</span>
                 <input
-                  :value="auth.user?.nome ?? '[Seu nome]'"
+                  :value="sessao.usuario?.nome ?? '[Seu nome]'"
                   class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">E-mail</span>
                 <input
-                  :value="auth.user?.email ?? 'voce@exemplo.com'"
+                  :value="sessao.usuario?.email ?? 'voce@exemplo.com'"
                   class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
               </label>
               <label class="flex flex-col gap-1.5">

@@ -6,10 +6,10 @@
  *
  * A prop `compact` (default true no mobile) esconde os links do meio no mobile.
  */
-import { useAuthStore } from '../stores/auth'
+import { useSessaoStore } from '../stores/sessao'
 import BrandMark from './BrandMark.vue'
 
-const auth = useAuthStore()
+const sessao = useSessaoStore()
 </script>
 
 <template>
@@ -27,13 +27,13 @@ const auth = useAuthStore()
         >Buscar</router-link
       >
       <router-link
-        v-if="!auth.isLogged"
+        v-if="!sessao.logado"
         to="/#como-funciona"
         class="text-sm font-medium text-ink-soft hover:text-ink"
         >Como funciona</router-link
       >
       <router-link
-        v-if="!auth.isLogged"
+        v-if="!sessao.logado"
         to="/register"
         class="text-sm font-medium text-ink-soft hover:text-ink"
         >Sou prestador</router-link
@@ -42,7 +42,7 @@ const auth = useAuthStore()
 
     <!-- Ações à direita -->
     <div class="flex items-center gap-2 md:gap-4">
-      <template v-if="!auth.isLogged">
+      <template v-if="!sessao.logado">
         <router-link
           to="/login"
           class="rounded-lg border border-rule px-3 py-1.5 text-sm font-medium md:px-4 md:py-2"
@@ -67,7 +67,7 @@ const auth = useAuthStore()
         </router-link>
         <div class="flex items-center gap-2 rounded-full border border-rule px-3 py-1.5">
           <span class="h-6 w-6 rounded-full bg-ph"></span>
-          <span class="hidden text-sm md:inline">{{ auth.user?.nome ?? 'Você' }}</span>
+          <span class="hidden text-sm md:inline">{{ sessao.usuario?.nome ?? 'Você' }}</span>
         </div>
       </template>
     </div>

@@ -2,9 +2,9 @@
 
 Estratégia:
 - Um engine único apontando pro TEST_DATABASE_URL, criado uma vez por sessão de teste.
-- Antes de tudo: drop_all + create_all (garante schema limpo, sem depender de Alembic).
+- Antes de tudo: drop_all + create_all (garante schema limpo, sem depender do Alembic).
 - Cada teste roda dentro de uma transação que é revertida ao fim -> isolamento total,
-  sem precisar TRUNCATE. FastAPI recebe uma sessão amarrada a essa transação via
+  sem precisar de TRUNCATE. O FastAPI recebe uma sessão amarrada a essa transação via
   dependency_overrides.
 """
 
@@ -42,31 +42,31 @@ def engine():
 
 
 @pytest.fixture()
-def db_session(engine) -> Session:
+def sessao(engine) -> Session:
     """Sessão amarrada a uma transação; rollback ao final do teste."""
-    connection = engine.connect()
-    transaction = connection.begin()
-    TestingSession = sessionmaker(bind=connection, autocommit=False, autoflush=False)
-    session = TestingSession()
+    conexao = engine.connect()
+    transacao = conexao.begin()
+    SessaoTeste = sessionmaker(bind=conexao, autocommit=False, autoflush=False)
+    sessao = SessaoTeste()
 
     try:
-        yield session
+        yield sessao
     finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
+        sessao.close()
+        transacao.rollback()
+        conexao.close()
 
 
 @pytest.fixture()
-def client(db_session) -> TestClient:
-    """TestClient com get_db sobrescrito para usar a sessão transacional do teste."""
-    from app.config.dependencies import get_db
+def api(sessao) -> TestClient:
+    """TestClient com obter_sessao sobrescrito para usar a sessão transacional do teste."""
+    from app.config.dependencies import obter_sessao
     from main import app
 
-    def _override_get_db():
-        yield db_session
+    def _obter_sessao_teste():
+        yield sessao
 
-    app.dependency_overrides[get_db] = _override_get_db
-    with TestClient(app) as c:
-        yield c
+    app.dependency_overrides[obter_sessao] = _obter_sessao_teste
+    with TestClient(app) as cliente_http:
+        yield cliente_http
     app.dependency_overrides.clear()

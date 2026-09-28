@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { authApi } from '../api/auth'
-import { ApiError } from '../api/client'
-import { useAuthStore } from '../stores/auth'
+import { contaApi } from '../api/conta'
+import { ErroApi } from '../api/client'
+import { useSessaoStore } from '../stores/sessao'
 import BrandMark from '../components/BrandMark.vue'
 
 const router = useRouter()
-const auth = useAuthStore()
+const sessao = useSessaoStore()
 
 const email = ref('')
 const senha = ref('')
@@ -19,11 +19,11 @@ async function submit() {
   error.value = null
   loading.value = true
   try {
-    const user = await authApi.login(email.value, senha.value)
-    auth.setUser(user)
+    const usuario = await contaApi.entrar(email.value, senha.value)
+    sessao.definirUsuario(usuario)
     router.push('/')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.detail : 'Erro inesperado'
+    error.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
   } finally {
     loading.value = false
   }

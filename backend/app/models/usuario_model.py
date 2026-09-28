@@ -1,11 +1,11 @@
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 
 from app.config.database import Base
-from app.models.base_model import ToDictMixin
-from app.utils.datetime_utils import get_now
+from app.models.base_model import SerializavelMixin
+from app.utils.data_utils import agora
 
 
-class Usuario(Base, ToDictMixin):
+class Usuario(Base, SerializavelMixin):
     __tablename__ = "usuario"
     __table_args__ = {"schema": "public"}
 
@@ -14,7 +14,7 @@ class Usuario(Base, ToDictMixin):
     email = Column(String(255), nullable=False, unique=True, index=True)
     senha_hash = Column(String(255), nullable=False)
     ativo = Column(Boolean, nullable=False, default=True)
-    data_criacao = Column(DateTime, nullable=False, default=get_now)
+    criado_em = Column(DateTime, nullable=False, default=agora)
 
     def __repr__(self):
         return f"<Usuario(idusuario={self.idusuario}, email='{self.email}')>"

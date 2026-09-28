@@ -1,29 +1,29 @@
 from fastapi import Response
 
 from app.config.constants import (
-    ACCESS_TOKEN_COOKIE,
-    IS_PRODUCTION,
-    TOKEN_EXPIRATION_TIME,
+    COOKIE_TOKEN_ACESSO,
+    EM_PRODUCAO,
+    MINUTOS_EXPIRACAO_TOKEN,
 )
 
 
-def set_auth_cookie(response: Response, token: str) -> None:
+def gravar_cookie_sessao(resposta: Response, token: str) -> None:
     """Grava o token JWT como cookie httpOnly."""
-    response.set_cookie(
-        key=ACCESS_TOKEN_COOKIE,
+    resposta.set_cookie(
+        key=COOKIE_TOKEN_ACESSO,
         value=token,
-        max_age=TOKEN_EXPIRATION_TIME * 60,
+        max_age=MINUTOS_EXPIRACAO_TOKEN * 60,
         httponly=True,
-        secure=IS_PRODUCTION,
+        secure=EM_PRODUCAO,
         samesite="lax",
         path="/",
     )
 
 
-def clear_auth_cookie(response: Response) -> None:
-    response.delete_cookie(
-        key=ACCESS_TOKEN_COOKIE,
+def apagar_cookie_sessao(resposta: Response) -> None:
+    resposta.delete_cookie(
+        key=COOKIE_TOKEN_ACESSO,
         path="/",
-        secure=IS_PRODUCTION,
+        secure=EM_PRODUCAO,
         samesite="lax",
     )

@@ -1,21 +1,21 @@
 from sqlalchemy import inspect
 
 
-class ToDictMixin:
-    def to_dict(self, include_unset: bool = False):
-        data = {}
+class SerializavelMixin:
+    def para_dict(self, incluir_nulos: bool = False) -> dict:
+        dados = {}
 
-        for c in inspect(self).mapper.column_attrs:
-            value = getattr(self, c.key)
-            if include_unset or value is not None:
-                data[c.key] = value
+        for coluna in inspect(self).mapper.column_attrs:
+            valor = getattr(self, coluna.key)
+            if incluir_nulos or valor is not None:
+                dados[coluna.key] = valor
 
-        for rel in inspect(self).mapper.relationships:
-            related_object = getattr(self, rel.key)
-            if related_object is not None:
-                if isinstance(related_object, list):
-                    data[rel.key] = [r.to_dict(include_unset) for r in related_object]
+        for relacao in inspect(self).mapper.relationships:
+            relacionado = getattr(self, relacao.key)
+            if relacionado is not None:
+                if isinstance(relacionado, list):
+                    dados[relacao.key] = [r.para_dict(incluir_nulos) for r in relacionado]
                 else:
-                    data[rel.key] = related_object.to_dict(include_unset)
+                    dados[relacao.key] = relacionado.para_dict(incluir_nulos)
 
-        return data
+        return dados

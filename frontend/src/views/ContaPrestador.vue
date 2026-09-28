@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { authApi } from '../api/auth'
-import { useAuthStore } from '../stores/auth'
+import { contaApi } from '../api/conta'
+import { useSessaoStore } from '../stores/sessao'
 import PublicNav from '../components/PublicNav.vue'
 import CategoryChip from '../components/CategoryChip.vue'
 
 const router = useRouter()
-const auth = useAuthStore()
+const sessao = useSessaoStore()
 
 type Aba = 'contratacoes' | 'vitrine' | 'portfolio' | 'dados'
 const aba = ref<Aba>('vitrine')
@@ -30,9 +30,9 @@ const precoMax = ref('R$ 150')
 
 async function sair() {
   try {
-    await authApi.logout()
+    await contaApi.sair()
   } finally {
-    auth.clearUser()
+    sessao.limparUsuario()
     router.push('/login')
   }
 }
@@ -303,11 +303,11 @@ async function sair() {
             <div class="grid gap-4 md:grid-cols-2">
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">Nome</span>
-                <input :value="auth.user?.nome ?? '[Seu nome]'" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
+                <input :value="sessao.usuario?.nome ?? '[Seu nome]'" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">E-mail</span>
-                <input :value="auth.user?.email ?? 'voce@exemplo.com'" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
+                <input :value="sessao.usuario?.email ?? 'voce@exemplo.com'" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">CNPJ</span>

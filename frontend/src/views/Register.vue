@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { authApi } from '../api/auth'
-import { ApiError } from '../api/client'
-import { useAuthStore } from '../stores/auth'
+import { contaApi } from '../api/conta'
+import { ErroApi } from '../api/client'
+import { useSessaoStore } from '../stores/sessao'
 import BrandMark from '../components/BrandMark.vue'
 
 const router = useRouter()
-const auth = useAuthStore()
+const sessao = useSessaoStore()
 
 type Papel = 'cliente' | 'prestador' | 'ambos'
 const papel = ref<Papel>('cliente')
@@ -35,13 +35,13 @@ async function submit() {
   loading.value = true
   try {
     // Backend atual só aceita (nome, email, senha); os demais campos (papel,
-    // cidade, telefone) entrarão em iteração futura, quando a rota /auth/signup
+    // cidade, telefone) entrarão em iteração futura, quando a rota /conta/cadastro
     // for expandida. Por ora, mockamos o cadastro extra apenas na UI.
-    const user = await authApi.signup(nome.value, email.value, senha.value)
-    auth.setUser(user)
+    const usuario = await contaApi.cadastrar(nome.value, email.value, senha.value)
+    sessao.definirUsuario(usuario)
     router.push('/')
   } catch (e) {
-    error.value = e instanceof ApiError ? e.detail : 'Erro inesperado'
+    error.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
   } finally {
     loading.value = false
   }

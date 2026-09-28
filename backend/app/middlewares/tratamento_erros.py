@@ -3,34 +3,33 @@ import traceback
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
-from app.config.database import SessionLocal
+from app.config.database import SessaoLocal
 from app.models.log_erro_model import LogErro
-from app.utils.datetime_utils import get_now
 
 
-async def catch_exceptions_middleware(request: Request, call_next):
+async def capturar_excecoes(requisicao: Request, proximo):
     """
     Captura exceções não tratadas, registra em public.logerro e devolve 500 padronizado.
     """
     try:
-        return await call_next(request)
+        return await proximo(requisicao)
     except Exception as e:
         print(f"Erro não tratado capturado pelo middleware: {e}")
         traceback.print_exc()
 
-        db = SessionLocal()
+        db = SessaoLocal()
         try:
-            erro = LogErro(
-                endpoint=request.url.path,
-                metodo=request.method,
-                datahora=get_now(),
-                erro=str(e),
+            db.add(
+                LogErro(
+                    rota=requisicao.url.path,
+                    metodo=requisicao.method,
+                    erro=str(e),
+                )
             )
-            db.add(erro)
             db.commit()
-        except Exception as log_err:
+        except Exception as erro_log:
             db.rollback()
-            print(f"Falha ao registrar log de erro: {log_err}")
+            print(f"Falha ao registrar log de erro: {erro_log}")
         finally:
             db.close()
 

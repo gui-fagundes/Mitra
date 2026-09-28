@@ -1,12 +1,12 @@
 import os
 
-TOKEN_EXPIRATION_TIME = 60  # minutos
+MINUTOS_EXPIRACAO_TOKEN = 60
 
-ACCESS_TOKEN_COOKIE = "access_token"
+COOKIE_TOKEN_ACESSO = "token_acesso"
 
-ENV = os.getenv("ENV", "development").lower()
-IS_PRODUCTION = ENV == "production"
+AMBIENTE = os.getenv("ENV", "development").lower()
+EM_PRODUCAO = AMBIENTE == "production"
 
-CORS_ORIGINS = [
+ORIGENS_CORS = [
     o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
 ]

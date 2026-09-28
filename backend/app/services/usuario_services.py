@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.usuario_model import Usuario
-from app.utils.auth_utils import hash_senha
+from app.utils.seguranca_utils import gerar_hash_senha
 
 
 def buscar_por_email(email: str, db: Session) -> Usuario | None:
@@ -19,7 +19,7 @@ def criar_usuario(payload: dict, db: Session) -> Usuario:
     usuario = Usuario(
         nome=payload["nome"],
         email=payload["email"],
-        senha_hash=hash_senha(payload["senha"]),
+        senha_hash=gerar_hash_senha(payload["senha"]),
     )
 
     db.add(usuario)

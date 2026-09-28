@@ -2,48 +2,48 @@ from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy.orm import Session
 
-from app.config.constants import ACCESS_TOKEN_COOKIE
-from app.config.database import SessionLocal
-from app.utils.auth_utils import decrypt_token
+from app.config.constants import COOKIE_TOKEN_ACESSO
+from app.config.database import SessaoLocal
+from app.utils.seguranca_utils import decodificar_token
 
 
-def get_db():
-    db = SessionLocal()
+def obter_sessao():
+    sessao = SessaoLocal()
     try:
-        yield db
+        yield sessao
     finally:
-        db.close()
+        sessao.close()
 
 
-def get_current_user(
-    request: Request,
-    db: Session = Depends(get_db),
+def obter_usuario_logado(
+    requisicao: Request,
+    db: Session = Depends(obter_sessao),
 ):
     from app.models.usuario_model import Usuario
 
-    unauthorized = HTTPException(
+    nao_autenticado = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não autenticado",
     )
 
-    token = request.cookies.get(ACCESS_TOKEN_COOKIE)
+    token = requisicao.cookies.get(COOKIE_TOKEN_ACESSO)
     if not token:
-        raise unauthorized
+        raise nao_autenticado
 
     try:
-        payload = decrypt_token(token)
+        payload = decodificar_token(token)
     except JWTError as e:
-        raise unauthorized from e
+        raise nao_autenticado from e
 
     if not payload:
-        raise unauthorized
+        raise nao_autenticado
 
-    id_usuario = payload.get("sub")
-    if id_usuario is None:
-        raise unauthorized
+    idusuario = payload.get("sub")
+    if idusuario is None:
+        raise nao_autenticado
 
-    usuario = db.query(Usuario).filter(Usuario.idusuario == int(id_usuario)).first()
+    usuario = db.query(Usuario).filter(Usuario.idusuario == int(idusuario)).first()
     if not usuario or not usuario.ativo:
-        raise unauthorized
+        raise nao_autenticado
 
     return usuario

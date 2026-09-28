@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
-from app.routes.auth_routes import auth_router
+from app.routes.conta_routes import rotas_conta
 
 
-def register_routes(app: FastAPI):
-    app.include_router(auth_router)
+def registrar_rotas(app: FastAPI):
+    app.include_router(rotas_conta)
