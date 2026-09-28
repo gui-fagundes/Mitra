@@ -97,6 +97,8 @@ export interface FiltrosBusca {
   categoria?: string
   servicos?: number[]
   somente_cnpj?: boolean
+  /** Com ao menos um serviço concluído pelo Mitra. */
+  ja_contratado?: boolean
   preco_min?: number
   preco_max?: number
   nota_min?: number

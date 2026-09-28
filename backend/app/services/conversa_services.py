@@ -37,10 +37,21 @@ def obter_participando(idconversa: int, usuario: Usuario, db: Session) -> Conver
 
 
 def adicionar_mensagem(
-    conversa: Conversa, idautor: int, texto: str, db: Session, tipo: str = "texto"
+    conversa: Conversa,
+    idautor: int,
+    texto: str,
+    db: Session,
+    tipo: str = "texto",
+    idcontratacao: int | None = None,
 ) -> Mensagem:
     """Acrescenta a mensagem e move a conversa para o topo. Não faz commit."""
-    mensagem = Mensagem(idconversa=conversa.idconversa, idautor=idautor, tipo=tipo, texto=texto)
+    mensagem = Mensagem(
+        idconversa=conversa.idconversa,
+        idautor=idautor,
+        tipo=tipo,
+        texto=texto,
+        idcontratacao=idcontratacao,
+    )
     db.add(mensagem)
     conversa.atualizado_em = agora()
     return mensagem

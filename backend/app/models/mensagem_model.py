@@ -28,6 +28,17 @@ class Mensagem(Base, SerializavelMixin):
     )
     tipo = Column(String(10), nullable=False, default="texto", server_default="texto")
     texto = Column(Text, nullable=False)
+    # Só em eventos: a contratação a que o evento se refere.
+    idcontratacao = Column(
+        Integer,
+        ForeignKey(
+            "public.contratacao.idcontratacao",
+            ondelete="RESTRICT",
+            name="fk_mensagem_idcontratacao",
+        ),
+        nullable=True,
+        index=True,
+    )
     criado_em = Column(DateTime, nullable=False, default=agora)
 
     def __repr__(self):

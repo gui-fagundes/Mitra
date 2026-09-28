@@ -68,6 +68,7 @@ function lerFiltros(query: LocationQuery): FiltrosBusca {
     categoria: texto(query.categoria),
     servicos: servicos.length ? servicos : undefined,
     somente_cnpj: texto(query.somente_cnpj) === 'true' || undefined,
+    ja_contratado: texto(query.ja_contratado) === 'true' || undefined,
     preco_min: numero(query.preco_min),
     preco_max: numero(query.preco_max),
     nota_min: numero(query.nota_min) || undefined,
@@ -218,6 +219,9 @@ const chipsAtivos = computed(() => {
     chips.push({ rotulo: `Nota ≥ ${f.nota_min}`, remover: { nota_min: undefined } })
   }
   if (f.somente_cnpj) chips.push({ rotulo: 'CNPJ validado', remover: { somente_cnpj: undefined } })
+  if (f.ja_contratado) {
+    chips.push({ rotulo: 'Já contratado', remover: { ja_contratado: undefined } })
+  }
   if (f.preco_min !== undefined || f.preco_max !== undefined) {
     chips.push({
       rotulo: formatarFaixaPreco(f.preco_min ?? null, f.preco_max ?? null),
@@ -373,7 +377,13 @@ const temMais = computed(() => itens.value.length < total.value)
               @change="aplicar({ somente_cnpj: ($event.target as HTMLInputElement).checked || undefined })" />
             CNPJ validado
           </label>
-          <!-- "Já contratado por outros" volta com a etapa de contratação. -->
+          <label class="flex items-center gap-2.5 py-1.5 text-sm text-ink-soft">
+            <input
+              type="checkbox"
+              :checked="filtros.ja_contratado ?? false"
+              @change="aplicar({ ja_contratado: ($event.target as HTMLInputElement).checked || undefined })" />
+            Já contratado por outros
+          </label>
         </fieldset>
 
         <fieldset>

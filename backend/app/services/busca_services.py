@@ -7,6 +7,8 @@ from sqlalchemy import DateTime, Float, case, exists, false, func, literal, or_
 from sqlalchemy.orm import Session
 
 from app.models.categoria_model import Categoria
+from app.models.contratacao_model import Contratacao
+from app.models.conversa_model import Conversa
 from app.models.prestador_perfil_model import PrestadorPerfil
 from app.models.prestador_servico_model import PrestadorServico
 from app.models.servico_model import Servico
@@ -99,6 +101,16 @@ def buscar_prestadores(filtros: dict, db: Session) -> dict:
 
     if filtros.get("servicos"):
         consulta = consulta.filter(_atende(Servico.idservico.in_(filtros["servicos"])))
+
+    if filtros.get("ja_contratado"):
+        # Ao menos um serviço concluído (confirmado pelos dois lados) como prestador.
+        consulta = consulta.filter(
+            exists().where(
+                Conversa.idprestador == PrestadorPerfil.idusuario,
+                Contratacao.idconversa == Conversa.idconversa,
+                Contratacao.estado == "concluido",
+            )
+        )
 
     if filtros.get("somente_cnpj"):
         consulta = consulta.filter(PrestadorPerfil.cnpj.is_not(None))

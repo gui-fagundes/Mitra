@@ -126,8 +126,8 @@ class PrestadorPublicoResposta(BaseModel):
     categorias: list[CategoriaResumo]
     servicos: list[ServicoResposta]
     portfolio: list[ItemPortfolioResposta]
-    # Preenchidos pelas etapas de contratação e de avaliações.
-    servicos_concluidos: int = 0
+    servicos_concluidos: int
+    # Preenchidos pela etapa de avaliações.
     nota_media: float | None = None
     qtd_avaliacoes: int = 0
 

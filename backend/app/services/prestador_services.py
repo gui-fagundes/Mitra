@@ -2,6 +2,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.contratacao_model import Contratacao
+from app.models.conversa_model import Conversa
 from app.models.prestador_perfil_model import PrestadorPerfil
 from app.models.servico_model import Servico
 from app.models.usuario_model import Usuario
@@ -117,7 +119,18 @@ def obter_prestador_publico(idusuario: int, db: Session) -> dict:
         "categorias": perfil.categorias,
         "servicos": perfil.servicos_ordenados,
         "portfolio": perfil.portfolio,
+        "servicos_concluidos": contar_servicos_concluidos(usuario.idusuario, db),
     }
+
+
+def contar_servicos_concluidos(idusuario: int, db: Session) -> int:
+    """Contratações concluídas (confirmadas pelos dois lados) em que ele foi o prestador."""
+    return (
+        db.query(Contratacao)
+        .join(Conversa, Conversa.idconversa == Contratacao.idconversa)
+        .filter(Conversa.idprestador == idusuario, Contratacao.estado == "concluido")
+        .count()
+    )
 
 
 # --- CNPJ (RF-ID-07) -------------------------------------------------------------

@@ -1,5 +1,6 @@
 from app.models.categoria_model import Categoria
 from app.models.cidade_model import Cidade
+from app.models.contratacao_model import Contratacao
 from app.models.conversa_model import Conversa
 from app.models.log_erro_model import LogErro
 from app.models.mensagem_model import Mensagem
@@ -12,6 +13,7 @@ from app.models.usuario_model import Usuario
 __all__ = [
     "Categoria",
     "Cidade",
+    "Contratacao",
     "Conversa",
     "LogErro",
     "Mensagem",

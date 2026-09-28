@@ -14,6 +14,7 @@ import { prestadorApi } from '../api/prestador'
 import { useSessaoStore } from '../stores/sessao'
 import { atividadeRelativa, formatarHora, quandoCurto, rotuloDia } from '../utils/formatacao'
 import FotoUsuario from '../components/FotoUsuario.vue'
+import PainelContratacao from '../components/PainelContratacao.vue'
 import PublicNav from '../components/PublicNav.vue'
 
 const INTERVALO_CONVERSA_MS = 5_000
@@ -38,10 +39,15 @@ const texto = ref('')
 const enviando = ref(false)
 const erro = ref<string | null>(null)
 const areaMensagens = ref<HTMLElement | null>(null)
+// Sobe quando chega evento de contratação: o painel da proposta recarrega.
+const versaoContratacao = ref(0)
 
 const idAtiva = computed(() => (route.params.id ? Number(route.params.id) : null))
 const interlocutor = computed(() => ativa.value?.outra_parte ?? rascunhoPara.value)
 const temConversaAberta = computed(() => !!interlocutor.value)
+const idprestadorDaConversa = computed(() =>
+  ativa.value?.papel === 'prestador' ? sessao.usuario?.idusuario : ativa.value?.outra_parte.idusuario,
+)
 
 function textoDoErro(e: unknown): string {
   return e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
@@ -148,8 +154,8 @@ async function carregarAntigas() {
   }
 }
 
-async function buscarNovas() {
-  if (!ativa.value || document.hidden) return
+async function buscarNovas(forcar = false) {
+  if (!ativa.value || (document.hidden && !forcar)) return
   const ultima = mensagens.value.at(-1)?.idmensagem
   try {
     const pagina = await conversaApi.mensagens(ativa.value.idconversa, { depoisDe: ultima })
@@ -157,6 +163,7 @@ async function buscarNovas() {
       const area = areaMensagens.value
       const estavaNoFim = !area || area.scrollHeight - area.scrollTop - area.clientHeight < 80
       mensagens.value = [...mensagens.value, ...pagina.itens]
+      if (pagina.itens.some((m) => m.tipo === 'evento')) versaoContratacao.value++
       if (estavaNoFim) rolarParaFim()
     }
   } catch {
@@ -211,7 +218,7 @@ let pollingLista: ReturnType<typeof setInterval> | undefined
 onMounted(async () => {
   await carregarLista()
   await sincronizarRota()
-  pollingConversa = setInterval(buscarNovas, INTERVALO_CONVERSA_MS)
+  pollingConversa = setInterval(() => buscarNovas(), INTERVALO_CONVERSA_MS)
   pollingLista = setInterval(() => !document.hidden && carregarLista(), INTERVALO_LISTA_MS)
 })
 
@@ -293,6 +300,13 @@ watch(() => [route.params.id, route.query.para], sincronizarRota)
               Ver perfil
             </router-link>
           </div>
+
+          <PainelContratacao
+            v-if="ativa && idprestadorDaConversa"
+            :idconversa="ativa.idconversa"
+            :idprestador="idprestadorDaConversa"
+            :versao="versaoContratacao"
+            @mudou="buscarNovas(true)" />
 
           <div ref="areaMensagens" class="flex flex-1 flex-col gap-1.5 overflow-y-auto p-4">
             <div v-if="carregandoConversa" class="py-6 text-center text-[13px] text-muted">Carregando…</div>

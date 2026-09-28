@@ -7,8 +7,7 @@ import { useSessaoStore } from '../stores/sessao'
 import FormularioDadosConta from '../components/FormularioDadosConta.vue'
 import FotoUsuario from '../components/FotoUsuario.vue'
 import PublicNav from '../components/PublicNav.vue'
-import StatusBadge from '../components/StatusBadge.vue'
-import StarRating from '../components/StarRating.vue'
+import ListaContratacoes from '../components/ListaContratacoes.vue'
 
 const router = useRouter()
 const sessao = useSessaoStore()
@@ -46,38 +45,6 @@ onMounted(async () => {
     // Mantém o que veio do armazenamento local.
   }
 })
-
-type Filtro = 'todos' | 'andamento' | 'concluidos'
-const filtro = ref<Filtro>('andamento')
-
-// Mocks — trocar por chamadas à API na fase seguinte
-const contratacoes = [
-  {
-    id: 1, prestador: '[Prestador]', servico: 'Instalação elétrica',
-    estado: 'wait' as const, statusLabel: 'Aguardando confirmação bilateral',
-    detalhe: 'Iniciado há 3 dias · você já confirmou',
-    acoes: ['abrir-chat', 'ver-confirmacao'] as const,
-  },
-  {
-    id: 2, prestador: '[Prestador]', servico: 'Aula particular',
-    estado: 'active' as const, statusLabel: 'Em conversa',
-    detalhe: 'Última mensagem há 2 horas',
-    acoes: ['abrir-chat'] as const,
-  },
-  {
-    id: 3, prestador: '[Prestador]', servico: 'Adestramento',
-    estado: 'done' as const, statusLabel: 'Concluído · aguardando sua avaliação',
-    detalhe: 'Finalizado há 5 dias',
-    acoes: ['avaliar'] as const,
-  },
-  {
-    id: 4, prestador: '[Prestador]', servico: 'Conserto',
-    estado: 'done' as const, statusLabel: 'Avaliado',
-    detalhe: 'Há 3 semanas · você avaliou',
-    nota: 5,
-    acoes: ['ver-avaliacao'] as const,
-  },
-]
 
 async function sair() {
   try {
@@ -179,77 +146,7 @@ async function sair() {
       <main class="overflow-y-auto p-5 md:p-10">
         <!-- CONTRATAÇÕES -->
         <template v-if="aba === 'contratacoes'">
-          <div class="mb-5 flex flex-col gap-3 md:mb-6 md:flex-row md:items-baseline md:justify-between">
-            <div>
-              <h1 class="text-xl font-semibold tracking-[-0.01em] md:text-2xl md:tracking-[-0.02em]">
-                Suas contratações
-              </h1>
-              <div class="mt-0.5 text-[13px] text-muted">
-                Todo contato feito pelo Mitra aparece aqui.
-              </div>
-            </div>
-            <div class="flex gap-2 overflow-x-auto">
-              <button
-                v-for="f in [
-                  { id: 'todos', label: 'Todos' },
-                  { id: 'andamento', label: 'Em andamento' },
-                  { id: 'concluidos', label: 'Concluídos' },
-                ]"
-                :key="f.id"
-                :class="['whitespace-nowrap rounded-lg border px-3.5 py-2 text-[13px]',
-                  filtro === (f.id as Filtro)
-                    ? 'border-ink bg-ink text-white'
-                    : 'border-rule bg-surface']"
-                @click="filtro = f.id as Filtro">
-                {{ f.label }}
-              </button>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-3">
-            <article
-              v-for="c in contratacoes"
-              :key="c.id"
-              class="rounded-xl border border-rule bg-surface p-3.5 md:grid md:grid-cols-[56px_1fr_auto] md:items-center md:gap-4 md:p-4.5">
-              <div class="ph mb-3 h-14 w-14 shrink-0 rounded-xl md:mb-0"></div>
-              <div class="mb-3 md:mb-0">
-                <div class="flex flex-wrap items-baseline gap-2.5">
-                  <div class="text-[15px] font-semibold">{{ c.prestador }}</div>
-                  <StatusBadge :variant="c.estado">{{ c.statusLabel }}</StatusBadge>
-                </div>
-                <div class="mt-1 text-[13px] text-muted">
-                  {{ c.servico }} · {{ c.detalhe }}
-                  <template v-if="c.nota">
-                    · <StarRating :value="c.nota" /> {{ c.nota }},0
-                  </template>
-                </div>
-              </div>
-              <div class="flex gap-2">
-                <router-link
-                  v-if="c.acoes.includes('abrir-chat')"
-                  :to="{ name: 'mensagens' }"
-                  class="rounded-lg border border-rule px-3.5 py-2 text-[13px]">
-                  Abrir chat
-                </router-link>
-                <router-link
-                  v-if="c.acoes.includes('ver-confirmacao')"
-                  :to="{ name: 'confirmar-servico', params: { id: c.id } }"
-                  class="rounded-lg bg-ink px-3.5 py-2 text-[13px] font-semibold text-white">
-                  Ver confirmação
-                </router-link>
-                <button
-                  v-if="c.acoes.includes('avaliar')"
-                  class="rounded-lg bg-gold px-3.5 py-2 text-[13px] font-semibold text-ink">
-                  Avaliar
-                </button>
-                <button
-                  v-if="c.acoes.includes('ver-avaliacao')"
-                  class="rounded-lg border border-rule px-3.5 py-2 text-[13px]">
-                  Ver avaliação
-                </button>
-              </div>
-            </article>
-          </div>
+          <ListaContratacoes papel="cliente" />
         </template>
 
         <!-- DADOS -->

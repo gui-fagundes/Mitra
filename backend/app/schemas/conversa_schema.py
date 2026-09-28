@@ -35,6 +35,8 @@ class MensagemResposta(BaseModel):
     idautor: int
     tipo: Literal["texto", "evento"]
     texto: str
+    # Só em eventos: a contratação a que se referem.
+    idcontratacao: int | None
     criado_em: datetime
 
 

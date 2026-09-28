@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
 import { ErroApi, urlArquivo } from '../api/client'
+import { contratacaoApi, estaAberta, type Contratacao } from '../api/contratacao'
 import { contaApi } from '../api/conta'
 import { LIMITE_SERVICOS, prestadorApi, type Vitrine } from '../api/prestador'
 import { taxonomiaApi, type Categoria, type Servico } from '../api/taxonomia'
@@ -10,6 +11,7 @@ import { formatarCnpj } from '../utils/formatacao'
 import { useSessaoStore } from '../stores/sessao'
 import CartaoCnpj from '../components/CartaoCnpj.vue'
 import FormularioDadosConta from '../components/FormularioDadosConta.vue'
+import ListaContratacoes from '../components/ListaContratacoes.vue'
 import FotoUsuario from '../components/FotoUsuario.vue'
 import GerenciadorPortfolio from '../components/GerenciadorPortfolio.vue'
 import PublicNav from '../components/PublicNav.vue'
@@ -27,12 +29,19 @@ const abas: Array<{ id: Aba; label: string; curto: string }> = [
   { id: 'dados', label: 'Dados da conta', curto: 'Dados' },
 ]
 
-// Reputação e contratações vêm das etapas de contratação e de avaliações.
-const kpis = [
+// Reputação vem da etapa de avaliações.
+const contratacoesRecebidas = ref<Contratacao[]>([])
+const kpis = computed(() => [
   { label: 'Reputação', valor: '—', detalhe: 'Sem avaliações ainda' },
-  { label: 'Contratações em andamento', valor: '0' },
-  { label: 'Serviços concluídos (total)', valor: '0' },
-]
+  {
+    label: 'Contratações em andamento',
+    valor: String(contratacoesRecebidas.value.filter(estaAberta).length),
+  },
+  {
+    label: 'Serviços concluídos (total)',
+    valor: String(contratacoesRecebidas.value.filter((c) => c.estado === 'concluido').length),
+  },
+])
 
 const SUGESTOES_DISPONIBILIDADE = ['Seg a Sáb · 8h–18h', 'Somente à tarde', 'Sob consulta']
 
@@ -149,6 +158,7 @@ onMounted(async () => {
     cidades.value = listaCidades
     if (usuario.e_prestador) {
       vitrine.value = await prestadorApi.obterVitrine()
+      contratacoesRecebidas.value = await contratacaoApi.minhas({ papel: 'prestador' })
     } else {
       semVitrine.value = true
     }
@@ -466,21 +476,8 @@ async function sair() {
           </template>
         </template>
 
-        <!-- Contratações: ligadas à API na etapa de contratação -->
         <template v-else-if="aba === 'contratacoes'">
-          <div class="mb-5">
-            <h1 class="text-xl font-semibold md:text-2xl">Contratações recebidas</h1>
-            <div class="mt-0.5 text-[13px] text-muted">
-              Serviços que outros contrataram via Mitra com você.
-            </div>
-          </div>
-          <div class="rounded-2xl border border-dashed border-rule bg-surface p-8 text-center">
-            <div class="mono mb-2">Preencher quando houver dados da API</div>
-            <p class="text-[13px] text-muted">
-              Mesma estrutura da lista de Contratações do cliente — mudam os CTAs
-              (o prestador "Confirma serviço", "Cancela", "Responde avaliação").
-            </p>
-          </div>
+          <ListaContratacoes papel="prestador" />
         </template>
 
         <template v-else-if="aba === 'portfolio'">

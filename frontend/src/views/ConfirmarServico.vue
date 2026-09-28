@@ -1,48 +1,144 @@
 <script setup lang="ts">
+// Detalhe de uma contratação: resumo do que foi combinado, confirmação bilateral da
+// fase atual (aceite da proposta ou conclusão) e o ciclo completo.
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ErroApi } from '../api/client'
+import {
+  contratacaoApi,
+  estaAberta,
+  marcasDaFase,
+  ROTULO_ESTADO,
+  type Contratacao,
+} from '../api/contratacao'
+import { useSessaoStore } from '../stores/sessao'
+import { formatarData, formatarFaixaPreco, formatarHora } from '../utils/formatacao'
 import PublicNav from '../components/PublicNav.vue'
 
 const route = useRoute()
 const router = useRouter()
+const sessao = useSessaoStore()
 
-const servicoId = route.params.id
+const contratacao = ref<Contratacao | null>(null)
+const carregando = ref(true)
+const trabalhando = ref(false)
+const erro = ref<string | null>(null)
+const valorFinal = ref<number | ''>('')
 
-// Mock — trocar por chamada à API na fase seguinte
-const servico = {
-  id: servicoId,
-  prestador: '[Nome do prestador]',
-  categoria: 'Eletroeletrônicos',
-  descricao: 'Instalação elétrica',
-  cidade: 'Rio Grande, RS',
-  contatoIniciado: '14/09/2026',
-  dataCombinada: '18/09/2026',
-  valor: 'R$ 240,00',
-  origem: 'Busca no Mitra',
-  prestadorConfirmou: true,
-  prestadorConfirmadoEm: 'ontem, 18:20',
-  clienteConfirmou: false,
+function textoDoErro(e: unknown): string {
+  return e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
 }
 
-// Ciclo — passos completos até agora
-const ciclo = [
-  { label: 'Contato iniciado · 14/09', estado: 'done' as const },
-  { label: 'Em conversa · 14–17/09', estado: 'done' as const },
-  { label: 'Prestador confirmou · 19/09', estado: 'done' as const },
-  { label: 'Sua confirmação (agora)', estado: 'now' as const },
-  { label: 'Avaliação pública liberada', estado: 'pending' as const },
-]
-
-function confirmar() {
-  // Mock: só volta para a área do cliente (a confirmação real vem com a etapa de contratação).
-  router.push({ name: 'conta-cliente' })
+function preencher(c: Contratacao) {
+  contratacao.value = c
+  valorFinal.value = c.valor_final ?? c.valor_estimado ?? ''
 }
+
+async function carregar(id: number) {
+  carregando.value = true
+  erro.value = null
+  try {
+    preencher(await contratacaoApi.obter(id))
+  } catch (e) {
+    contratacao.value = null
+    erro.value = textoDoErro(e)
+  } finally {
+    carregando.value = false
+  }
+}
+
+watch(() => Number(route.params.id), carregar, { immediate: true })
+
+async function executar(acao: () => Promise<Contratacao>) {
+  trabalhando.value = true
+  erro.value = null
+  try {
+    preencher(await acao())
+  } catch (e) {
+    erro.value = textoDoErro(e)
+  } finally {
+    trabalhando.value = false
+  }
+}
+
+const c = computed(() => contratacao.value)
+const id = computed(() => contratacao.value?.idcontratacao ?? 0)
+
+function aceitar() {
+  executar(() => contratacaoApi.aceitar(id.value))
+}
+
+function confirmarConclusao() {
+  if (valorFinal.value === '') {
+    erro.value = 'Informe o preço cobrado.'
+    return
+  }
+  const valor = Number(valorFinal.value)
+  // Só manda o valor se mudou: reenviar o mesmo não derruba a confirmação do outro.
+  executar(() =>
+    contratacaoApi.confirmarConclusao(id.value, valor === c.value?.valor_final ? undefined : valor),
+  )
+}
+
+function cancelar() {
+  const motivo = prompt('Cancelar esta contratação? Se quiser, diga o motivo:')
+  if (motivo === null) return
+  executar(() => contratacaoApi.cancelar(id.value, motivo.trim()))
+}
+
+function dataHora(iso: string | null): string {
+  return iso ? `${formatarData(iso)} · ${formatarHora(iso)}` : ''
+}
+
+function reais(valor: number | null): string {
+  return valor == null ? '—' : formatarFaixaPreco(valor, valor)
+}
+
+const titulo = computed(() => {
+  switch (c.value?.estado) {
+    case 'proposta':
+      return 'Proposta de serviço'
+    case 'combinado':
+      return 'Confirmar que o serviço foi realizado'
+    case 'concluido':
+      return 'Serviço concluído'
+    default:
+      return 'Contratação cancelada'
+  }
+})
+
+const marcas = computed(() => (c.value ? marcasDaFase(c.value) : { minha: null, dela: null }))
+
+const ciclo = computed(() => {
+  const x = c.value
+  if (!x) return []
+  const passos = [
+    { label: `Proposta enviada · ${formatarData(x.criado_em)}`, feito: true },
+    {
+      label: x.combinado_em ? `Plano combinado · ${formatarData(x.combinado_em)}` : 'Plano combinado pelos dois',
+      feito: !!x.combinado_em,
+    },
+    {
+      label: x.concluido_em ? `Conclusão confirmada · ${formatarData(x.concluido_em)}` : 'Conclusão confirmada pelos dois',
+      feito: !!x.concluido_em,
+    },
+    { label: 'Avaliação pública liberada', feito: x.estado === 'concluido' },
+  ]
+  const atual = x.estado === 'cancelado' ? -1 : passos.findIndex((p) => !p.feito)
+  return passos.map((p, i) => ({ ...p, agora: i === atual }))
+})
+
+const nomeCancelou = computed(() => {
+  const x = c.value
+  if (!x?.idcancelado_por) return ''
+  return x.idcancelado_por === sessao.usuario?.idusuario ? 'Você' : x.outra_parte.nome
+})
 </script>
 
 <template>
   <div class="min-h-screen bg-bg">
     <div class="hidden md:block"><PublicNav /></div>
 
-    <!-- Header mobile -->
     <div class="flex items-center justify-between border-b border-rule-soft bg-surface px-5 py-3.5 md:hidden">
       <button
         aria-label="Voltar"
@@ -50,164 +146,190 @@ function confirmar() {
         @click="router.back()">
         <i class="fa fa-arrow-left"></i>
       </button>
-      <div class="text-sm font-semibold">Confirmação de serviço</div>
+      <div class="text-sm font-semibold">Serviço</div>
       <div class="w-9"></div>
     </div>
 
-    <!-- Breadcrumb desktop -->
-    <div class="hidden px-16 py-4 text-[13px] text-muted md:block">
-      <router-link to="/conta/cliente" class="text-ink-soft">
-        Suas contratações
-      </router-link>
-      <span class="mx-2">›</span>
-      <span>Serviço #{{ servico.id }} · Confirmação</span>
+    <div v-if="carregando" class="px-5 py-16 text-center text-sm text-muted">Carregando…</div>
+
+    <div v-else-if="!c" class="px-5 py-16 text-center">
+      <div class="text-lg font-semibold">Não foi possível abrir esta contratação</div>
+      <p class="mt-1 text-sm text-muted">{{ erro }}</p>
     </div>
 
-    <!-- Grid principal -->
-    <div class="grid gap-6 px-5 pb-32 md:grid-cols-[1fr_380px] md:gap-10 md:px-16 md:pb-10">
-      <!-- Coluna principal -->
-      <div class="space-y-6">
-        <!-- Cabeçalho -->
-        <div>
-          <div class="mono-sm mb-2">Serviço #{{ servico.id }} · via Mitra</div>
-          <h1 class="mb-2 text-[22px] font-semibold tracking-[-0.01em] md:text-[30px] md:tracking-[-0.02em]">
-            Confirmar que o serviço foi realizado
-          </h1>
-          <p class="max-w-[60ch] text-[13px] leading-[1.5] text-ink-soft md:text-[15px]">
-            Cliente e prestador precisam confirmar independentemente. Quando os
-            dois lados marcarem a conclusão, a avaliação pública fica
-            disponível para ambos.
-          </p>
-        </div>
+    <template v-else>
+      <div class="hidden px-16 py-4 text-[13px] text-muted md:block">
+        <router-link
+          :to="{ name: c.papel === 'cliente' ? 'conta-cliente' : 'conta-prestador' }"
+          class="text-ink-soft">
+          Suas contratações
+        </router-link>
+        <span class="mx-2">›</span>
+        <span>Serviço #{{ c.idcontratacao }}</span>
+      </div>
 
-        <!-- Resumo do serviço -->
-        <section class="rounded-2xl border border-rule bg-surface p-5 md:p-6">
-          <div class="mono mb-3">Resumo do serviço</div>
-          <div class="grid gap-y-0 md:grid-cols-2 md:gap-x-8">
-            <div class="flex justify-between border-b border-rule-soft py-3 text-sm">
-              <span class="text-muted">Prestador</span><span>{{ servico.prestador }}</span>
-            </div>
-            <div class="flex justify-between border-b border-rule-soft py-3 text-sm">
-              <span class="text-muted">Categoria</span><span>{{ servico.categoria }}</span>
-            </div>
-            <div class="flex justify-between border-b border-rule-soft py-3 text-sm">
-              <span class="text-muted">Serviço combinado</span><span>{{ servico.descricao }}</span>
-            </div>
-            <div class="flex justify-between border-b border-rule-soft py-3 text-sm">
-              <span class="text-muted">Cidade</span><span>{{ servico.cidade }}</span>
-            </div>
-            <div class="flex justify-between border-b border-rule-soft py-3 text-sm">
-              <span class="text-muted">Contato iniciado</span><span>{{ servico.contatoIniciado }}</span>
-            </div>
-            <div class="flex justify-between border-b border-rule-soft py-3 text-sm">
-              <span class="text-muted">Data combinada</span><span>{{ servico.dataCombinada }}</span>
-            </div>
-            <div class="flex justify-between py-3 text-sm">
-              <span class="text-muted">Valor combinado</span>
-              <span><strong>{{ servico.valor }}</strong></span>
-            </div>
-            <div class="flex justify-between py-3 text-sm">
-              <span class="text-muted">Origem</span><span>{{ servico.origem }}</span>
-            </div>
+      <div class="grid gap-6 px-5 py-5 pb-32 md:grid-cols-[1fr_380px] md:gap-10 md:px-16 md:py-0 md:pb-10">
+        <div class="space-y-6">
+          <div>
+            <div class="mono-sm mb-2">Serviço #{{ c.idcontratacao }} · {{ ROTULO_ESTADO[c.estado] }}</div>
+            <h1 class="mb-2 text-[22px] font-semibold tracking-[-0.01em] md:text-[30px] md:tracking-[-0.02em]">
+              {{ titulo }}
+            </h1>
+            <p v-if="c.estado === 'proposta'" class="max-w-[60ch] text-[13px] leading-[1.5] text-ink-soft md:text-[15px]">
+              Quando os dois aceitarem esta versão, o plano fica combinado. Qualquer
+              alteração volta para o outro lado aceitar de novo.
+            </p>
+            <p v-else-if="c.estado === 'combinado'" class="max-w-[60ch] text-[13px] leading-[1.5] text-ink-soft md:text-[15px]">
+              Cliente e prestador confirmam, cada um, que o serviço foi feito e o preço cobrado.
+              Com as duas confirmações, a avaliação pública é liberada.
+            </p>
+            <p v-else-if="c.estado === 'concluido'" class="max-w-[60ch] text-[13px] leading-[1.5] text-ink-soft md:text-[15px]">
+              Os dois confirmaram. A avaliação pública está liberada.
+            </p>
+            <p v-else class="max-w-[60ch] text-[13px] leading-[1.5] text-ink-soft md:text-[15px]">
+              {{ nomeCancelou }} cancelou em {{ dataHora(c.cancelado_em) }}.
+              <template v-if="c.motivo_cancelamento">Motivo: “{{ c.motivo_cancelamento }}”.</template>
+            </p>
           </div>
-        </section>
 
-        <!-- Estado bilateral -->
-        <section>
-          <div class="mono mb-3">Estado da confirmação bilateral</div>
-          <div class="grid gap-3.5 md:grid-cols-2">
-            <div class="flex items-center gap-3.5 rounded-xl border border-rule bg-surface p-4 md:p-5">
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-good-soft text-lg font-semibold text-good">
-                <i class="fa fa-check"></i>
+          <section class="rounded-2xl border border-rule bg-surface p-5 md:p-6">
+            <div class="mono mb-3">Resumo</div>
+            <div class="grid md:grid-cols-2 md:gap-x-8">
+              <div class="flex justify-between gap-3 border-b border-rule-soft py-3 text-sm">
+                <span class="text-muted">{{ c.papel === 'cliente' ? 'Prestador' : 'Cliente' }}</span>
+                <span class="text-right">{{ c.outra_parte.nome }}</span>
               </div>
-              <div class="min-w-0 flex-1">
-                <div class="text-sm font-semibold">{{ servico.prestador }}</div>
-                <div class="mt-0.5 text-xs text-good">
-                  Confirmou · {{ servico.prestadorConfirmadoEm }}
+              <div class="flex justify-between gap-3 border-b border-rule-soft py-3 text-sm">
+                <span class="text-muted">Serviço</span><span class="text-right">{{ c.servico.nome }}</span>
+              </div>
+              <div class="flex justify-between gap-3 border-b border-rule-soft py-3 text-sm md:col-span-2">
+                <span class="shrink-0 text-muted">O que vai ser feito</span>
+                <span class="whitespace-pre-line text-right">{{ c.descricao }}</span>
+              </div>
+              <div class="flex justify-between gap-3 border-b border-rule-soft py-3 text-sm">
+                <span class="text-muted">Onde</span><span class="text-right">{{ c.local ?? '—' }}</span>
+              </div>
+              <div class="flex justify-between gap-3 border-b border-rule-soft py-3 text-sm">
+                <span class="text-muted">Quando</span>
+                <span>{{ c.data_prevista ? formatarData(`${c.data_prevista}T12:00:00`) : '—' }}</span>
+              </div>
+              <div class="flex justify-between gap-3 py-3 text-sm">
+                <span class="text-muted">Valor estimado</span><span>{{ reais(c.valor_estimado) }}</span>
+              </div>
+              <div class="flex justify-between gap-3 py-3 text-sm">
+                <span class="text-muted">Preço cobrado</span>
+                <span><strong>{{ reais(c.valor_final) }}</strong></span>
+              </div>
+            </div>
+          </section>
+
+          <section v-if="estaAberta(c)">
+            <div class="mono mb-3">
+              {{ c.estado === 'proposta' ? 'Aceite da proposta' : 'Confirmação de conclusão' }}
+            </div>
+            <div class="grid gap-3.5 md:grid-cols-2">
+              <div
+                v-for="lado in [
+                  { nome: `Você (${c.papel})`, marca: marcas.minha },
+                  { nome: c.outra_parte.nome, marca: marcas.dela },
+                ]"
+                :key="lado.nome"
+                :class="['flex items-center gap-3.5 rounded-xl border bg-surface p-4 md:p-5',
+                  lado.marca ? 'border-rule' : 'border-dashed border-gold']">
+                <div
+                  :class="['flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-semibold',
+                    lado.marca ? 'bg-good-soft text-good' : 'bg-gold-soft text-gold-ink']">
+                  <i v-if="lado.marca" class="fa fa-check"></i>
+                  <template v-else>…</template>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-semibold">{{ lado.nome }}</div>
+                  <div :class="['mt-0.5 text-xs', lado.marca ? 'text-good' : 'text-gold-ink']">
+                    {{ lado.marca ? `Confirmou · ${dataHora(lado.marca)}` : 'Ainda não confirmou' }}
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="flex items-center gap-3.5 rounded-xl border border-dashed border-gold bg-surface p-4 md:p-5">
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold-soft text-lg font-semibold text-gold-ink">
-                …
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="text-sm font-semibold">Você (cliente)</div>
-                <div class="mt-0.5 text-xs text-gold-ink">Ainda não confirmou</div>
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- Bloco de ação (desktop) -->
-        <section class="hidden items-center justify-between gap-5 rounded-2xl border border-rule bg-surface p-6 md:flex">
-          <div class="max-w-[52ch]">
-            <div class="mb-1 text-[15px] font-semibold">
-              Ao confirmar você diz que o serviço combinado foi realizado.
-            </div>
-            <div class="text-[13px] leading-[1.5] text-muted">
-              Depois da sua confirmação a avaliação pública fica aberta por 14
-              dias, para os dois lados.
-            </div>
-          </div>
-          <button
-            class="h-12 shrink-0 rounded-xl bg-gold px-6 text-[15px] font-semibold text-ink hover:opacity-90"
-            @click="confirmar">
-            Confirmar conclusão
-          </button>
-        </section>
+          <section
+            v-if="c.estado === 'combinado' && c.aguardando_voce"
+            class="flex flex-col gap-4 rounded-2xl border border-rule bg-surface p-5 md:flex-row md:items-end md:justify-between md:p-6">
+            <label class="flex flex-col gap-1.5">
+              <span class="mono-sm">Preço cobrado (R$)</span>
+              <input
+                v-model.number="valorFinal"
+                type="number"
+                min="0"
+                step="0.01"
+                class="h-11 rounded-lg border borda-campo bg-bg px-3 text-sm outline-none md:w-48" />
+              <span class="text-[12px] text-muted">
+                Se você mudar o valor informado pelo outro lado, ele precisa confirmar de novo.
+              </span>
+            </label>
+            <button
+              :disabled="trabalhando"
+              class="h-12 shrink-0 rounded-xl bg-gold px-6 text-[15px] font-semibold text-ink hover:opacity-90 disabled:opacity-60"
+              @click="confirmarConclusao">
+              Confirmar conclusão
+            </button>
+          </section>
 
-        <!-- Mensagem no mobile -->
-        <div class="md:hidden rounded-lg bg-surface-2 p-3.5 text-xs leading-[1.5] text-ink-soft">
-          Ao confirmar você diz que o serviço combinado foi realizado. Isso
-          destrava a avaliação pública para ambos os lados e encerra o ciclo
-          dentro do Mitra.
+          <section
+            v-if="c.estado === 'proposta' && c.aguardando_voce"
+            class="flex flex-col items-start gap-3 rounded-2xl border border-rule bg-surface p-5 md:flex-row md:items-center md:justify-between md:p-6">
+            <div class="text-[13px] text-ink-soft">
+              Concorda com a proposta como está? Para mudar algo, edite pela conversa.
+            </div>
+            <button
+              :disabled="trabalhando"
+              class="h-11 shrink-0 rounded-xl bg-gold px-6 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-60"
+              @click="aceitar">
+              Aceitar proposta
+            </button>
+          </section>
+
+          <p v-if="erro" class="text-sm text-red-700">{{ erro }}</p>
+
+          <div class="flex flex-wrap gap-4 text-[13px]">
+            <router-link
+              :to="{ name: 'mensagem', params: { id: c.idconversa } }"
+              class="text-ink underline underline-offset-[3px]">
+              Abrir conversa com {{ c.outra_parte.nome }}
+            </router-link>
+            <button
+              v-if="estaAberta(c)"
+              type="button"
+              class="text-ink-soft underline underline-offset-[3px]"
+              @click="cancelar">
+              {{ c.estado === 'proposta' ? 'Recusar proposta' : 'Cancelar serviço' }}
+            </button>
+          </div>
         </div>
+
+        <aside class="self-start rounded-2xl border border-rule bg-surface p-6">
+          <div class="mono mb-4">Ciclo do serviço</div>
+          <div class="flex flex-col gap-3.5">
+            <div v-for="(passo, i) in ciclo" :key="i" class="flex items-center gap-3">
+              <span
+                :class="['flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold',
+                  passo.feito ? 'bg-good-soft text-good'
+                  : passo.agora ? 'bg-gold text-ink'
+                  : 'bg-surface-2 text-muted']">
+                {{ passo.feito ? '✓' : i + 1 }}
+              </span>
+              <span
+                :class="['text-[13px]',
+                  passo.feito ? 'text-good' : passo.agora ? 'font-semibold text-ink' : 'text-muted']">
+                {{ passo.label }}
+              </span>
+            </div>
+          </div>
+          <div v-if="c.estado === 'cancelado'" class="mt-4 text-[12px] text-muted">
+            Ciclo interrompido: a contratação foi cancelada.
+          </div>
+        </aside>
       </div>
-
-      <!-- Sidebar direita: ciclo (desktop) -->
-      <aside class="hidden self-start rounded-2xl border border-rule bg-surface p-6 md:block">
-        <div class="mono mb-4">Ciclo do serviço</div>
-        <div class="flex flex-col gap-3.5">
-          <div
-            v-for="(passo, i) in ciclo"
-            :key="i"
-            class="flex items-center gap-3">
-            <span
-              :class="['flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold',
-                passo.estado === 'done' ? 'bg-good-soft text-good'
-                : passo.estado === 'now' ? 'bg-gold text-ink'
-                : 'bg-surface-2 text-muted']">
-              {{ passo.estado === 'done' ? '✓' : i + 1 }}
-            </span>
-            <span
-              :class="['text-[13px]',
-                passo.estado === 'done' ? 'text-good'
-                : passo.estado === 'now' ? 'font-semibold text-ink'
-                : 'text-muted']">
-              {{ passo.label }}
-            </span>
-          </div>
-        </div>
-
-        <div class="my-4 h-px bg-rule-soft"></div>
-
-        <div>
-          <div class="mono-sm mb-1">Conversa relacionada</div>
-          <router-link :to="{ name: 'mensagens' }" class="text-[13px] text-ink underline">
-            Abrir chat com {{ servico.prestador }}
-          </router-link>
-        </div>
-      </aside>
-    </div>
-
-    <!-- Ação fixa mobile -->
-    <div class="fixed inset-x-0 bottom-0 border-t border-rule bg-surface px-5 py-3 md:hidden">
-      <button
-        class="h-[52px] w-full rounded-xl bg-gold text-[15px] font-semibold text-ink hover:opacity-90"
-        @click="confirmar">
-        Confirmar conclusão do serviço
-      </button>
-    </div>
+    </template>
   </div>
 </template>
