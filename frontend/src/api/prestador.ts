@@ -81,6 +81,8 @@ export interface CartaoPrestador {
   ultimo_acesso_em: string | null
   nota_media: number | null
   qtd_avaliacoes: number
+  /** Trecho do comentário mais recente. */
+  destaque: string | null
 }
 
 export interface ResultadoBusca {

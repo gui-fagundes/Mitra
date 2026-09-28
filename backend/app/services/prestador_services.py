@@ -7,6 +7,7 @@ from app.models.conversa_model import Conversa
 from app.models.prestador_perfil_model import PrestadorPerfil
 from app.models.servico_model import Servico
 from app.models.usuario_model import Usuario
+from app.services import avaliacao_services
 from app.utils import cnpj_utils
 from app.utils.cnpj_utils import SituacaoConsulta
 from app.utils.data_utils import agora
@@ -104,6 +105,7 @@ def obter_prestador_publico(idusuario: int, db: Session) -> dict:
         )
 
     perfil = usuario.prestador_perfil
+    nota_media, qtd_avaliacoes = avaliacao_services.estatisticas(usuario.idusuario, db)
     return {
         "idusuario": usuario.idusuario,
         "nome": usuario.nome,
@@ -120,6 +122,8 @@ def obter_prestador_publico(idusuario: int, db: Session) -> dict:
         "servicos": perfil.servicos_ordenados,
         "portfolio": perfil.portfolio,
         "servicos_concluidos": contar_servicos_concluidos(usuario.idusuario, db),
+        "nota_media": nota_media,
+        "qtd_avaliacoes": qtd_avaliacoes,
     }
 
 

@@ -127,9 +127,8 @@ class PrestadorPublicoResposta(BaseModel):
     servicos: list[ServicoResposta]
     portfolio: list[ItemPortfolioResposta]
     servicos_concluidos: int
-    # Preenchidos pela etapa de avaliações.
-    nota_media: float | None = None
-    qtd_avaliacoes: int = 0
+    nota_media: float | None
+    qtd_avaliacoes: int
 
 
 class CartaoPrestadorResposta(BaseModel):
@@ -147,6 +146,8 @@ class CartaoPrestadorResposta(BaseModel):
     ultimo_acesso_em: datetime | None
     nota_media: float | None
     qtd_avaliacoes: int
+    # Trecho do comentário mais recente.
+    destaque: str | None
 
 
 class ResultadoBuscaResposta(BaseModel):

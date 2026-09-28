@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.conversa_schema import ParticipanteResposta
 from app.schemas.taxonomia_schema import ServicoResposta
@@ -53,6 +53,17 @@ class CancelamentoEntrada(BaseModel):
     motivo: str | None = Field(default=None, max_length=255)
 
 
+class AvaliacaoResumo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    idavaliacao: int
+    nota: int
+    comentario: str | None
+    criado_em: datetime
+    resposta: str | None
+    resposta_em: datetime | None
+
+
 class ContratacaoResposta(BaseModel):
     """Uma contratação vista por um dos participantes."""
 
@@ -77,7 +88,12 @@ class ContratacaoResposta(BaseModel):
     cancelado_em: datetime | None
     idcancelado_por: int | None
     motivo_cancelamento: str | None
-    # Há algo para quem está vendo fazer (aceitar a proposta / confirmar a conclusão).
+    # Há algo para quem está vendo fazer: aceitar, confirmar a conclusão, avaliar ou responder.
     aguardando_voce: bool
+    avaliacao: AvaliacaoResumo | None
+    # Fim do prazo para o cliente avaliar (30 dias após a conclusão).
+    avaliar_ate: datetime | None
+    pode_avaliar: bool
+    pode_responder: bool
     criado_em: datetime
     atualizado_em: datetime

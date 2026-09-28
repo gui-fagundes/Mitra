@@ -3,6 +3,7 @@
 // fase atual (aceite da proposta ou conclusão) e o ciclo completo.
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { avaliacaoApi, TAMANHO_MAXIMO_TEXTO_AVALIACAO } from '../api/avaliacao'
 import { ErroApi } from '../api/client'
 import {
   contratacaoApi,
@@ -13,6 +14,8 @@ import {
 } from '../api/contratacao'
 import { useSessaoStore } from '../stores/sessao'
 import { formatarData, formatarFaixaPreco, formatarHora } from '../utils/formatacao'
+import CartaoAvaliacao from '../components/CartaoAvaliacao.vue'
+import FormularioAvaliacao from '../components/FormularioAvaliacao.vue'
 import PublicNav from '../components/PublicNav.vue'
 
 const route = useRoute()
@@ -80,6 +83,23 @@ function confirmarConclusao() {
   )
 }
 
+const resposta = ref('')
+
+function responder() {
+  const avaliacao = c.value?.avaliacao
+  if (!avaliacao || !resposta.value.trim()) return
+  if (!confirm('Publicar a resposta? Ela fica visível no seu perfil e não pode ser editada.')) return
+  executar(async () => {
+    await avaliacaoApi.responder(avaliacao.idavaliacao, resposta.value.trim())
+    resposta.value = ''
+    return contratacaoApi.obter(id.value)
+  })
+}
+
+function aposAvaliar() {
+  carregar(id.value)
+}
+
 function cancelar() {
   const motivo = prompt('Cancelar esta contratação? Se quiser, diga o motivo:')
   if (motivo === null) return
@@ -122,7 +142,10 @@ const ciclo = computed(() => {
       label: x.concluido_em ? `Conclusão confirmada · ${formatarData(x.concluido_em)}` : 'Conclusão confirmada pelos dois',
       feito: !!x.concluido_em,
     },
-    { label: 'Avaliação pública liberada', feito: x.estado === 'concluido' },
+    {
+      label: x.avaliacao ? `Avaliado com ${x.avaliacao.nota}★ · ${formatarData(x.avaliacao.criado_em)}` : 'Avaliação do cliente',
+      feito: !!x.avaliacao,
+    },
   ]
   const atual = x.estado === 'cancelado' ? -1 : passos.findIndex((p) => !p.feito)
   return passos.map((p, i) => ({ ...p, agora: i === atual }))
@@ -288,6 +311,53 @@ const nomeCancelou = computed(() => {
               Aceitar proposta
             </button>
           </section>
+
+          <template v-if="c.estado === 'concluido'">
+            <FormularioAvaliacao
+              v-if="c.pode_avaliar"
+              :idcontratacao="c.idcontratacao"
+              :nome-prestador="c.outra_parte.nome"
+              :prazo="c.avaliar_ate"
+              @avaliado="aposAvaliar" />
+
+            <section v-else-if="c.avaliacao">
+              <div class="mono mb-3">
+                {{ c.papel === 'cliente' ? 'Sua avaliação' : `Avaliação de ${c.outra_parte.nome}` }}
+              </div>
+              <CartaoAvaliacao
+                :nota="c.avaliacao.nota"
+                :comentario="c.avaliacao.comentario"
+                :criado-em="c.avaliacao.criado_em"
+                :resposta="c.avaliacao.resposta"
+                :resposta-em="c.avaliacao.resposta_em">
+                <form v-if="c.pode_responder" class="mt-3 space-y-2 border-t border-dashed border-rule-soft pt-3" @submit.prevent="responder">
+                  <label class="flex flex-col gap-1.5">
+                    <span class="mono-sm">Responder publicamente (uma vez)</span>
+                    <textarea
+                      v-model="resposta"
+                      rows="2"
+                      required
+                      :maxlength="TAMANHO_MAXIMO_TEXTO_AVALIACAO"
+                      placeholder="Agradeça ou esclareça algum ponto."
+                      class="resize-y rounded-lg border borda-campo bg-bg px-3 py-2 font-sans text-sm outline-none"></textarea>
+                  </label>
+                  <button
+                    type="submit"
+                    :disabled="trabalhando || !resposta.trim()"
+                    class="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60">
+                    Publicar resposta
+                  </button>
+                </form>
+              </CartaoAvaliacao>
+            </section>
+
+            <p v-else-if="c.papel === 'cliente'" class="text-[13px] text-muted">
+              O prazo de 30 dias para avaliar este serviço terminou.
+            </p>
+            <p v-else class="text-[13px] text-muted">
+              {{ c.outra_parte.nome }} ainda não avaliou este serviço.
+            </p>
+          </template>
 
           <p v-if="erro" class="text-sm text-red-700">{{ erro }}</p>
 

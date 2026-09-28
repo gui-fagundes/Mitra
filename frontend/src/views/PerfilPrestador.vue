@@ -2,11 +2,13 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { rotuloCidade } from '../api/cidade'
+import { avaliacaoApi, formatarNota, type Avaliacao } from '../api/avaliacao'
 import { ErroApi, urlArquivo } from '../api/client'
 import { conversaApi } from '../api/conversa'
 import { prestadorApi, type PrestadorPublico } from '../api/prestador'
 import { useSessaoStore } from '../stores/sessao'
 import { atividadeRelativa, formatarFaixaPreco, tempoDesde } from '../utils/formatacao'
+import CartaoAvaliacao from '../components/CartaoAvaliacao.vue'
 import CategoryChip from '../components/CategoryChip.vue'
 import FotoUsuario from '../components/FotoUsuario.vue'
 import PublicNav from '../components/PublicNav.vue'
@@ -36,12 +38,35 @@ const cidade = computed(() =>
 )
 const temNota = computed(() => prestador.value?.nota_media != null)
 
+const TAMANHO_PAGINA_AVALIACOES = 10
+const avaliacoes = ref<Avaliacao[]>([])
+const totalAvaliacoes = ref(0)
+const carregandoAvaliacoes = ref(false)
+
+async function carregarMaisAvaliacoes() {
+  if (!prestador.value) return
+  carregandoAvaliacoes.value = true
+  try {
+    const pagina = await avaliacaoApi.doPrestador(prestador.value.idusuario, {
+      limite: TAMANHO_PAGINA_AVALIACOES,
+      deslocamento: avaliacoes.value.length,
+    })
+    avaliacoes.value = [...avaliacoes.value, ...pagina.itens]
+    totalAvaliacoes.value = pagina.total
+  } finally {
+    carregandoAvaliacoes.value = false
+  }
+}
+
 async function carregar(id: number) {
   carregando.value = true
   naoEncontrado.value = false
   erro.value = null
   try {
     prestador.value = await prestadorApi.obterPublico(id)
+    const pagina = await avaliacaoApi.doPrestador(id, { limite: TAMANHO_PAGINA_AVALIACOES })
+    avaliacoes.value = pagina.itens
+    totalAvaliacoes.value = pagina.total
   } catch (e) {
     prestador.value = null
     if (e instanceof ErroApi && e.status === 404) naoEncontrado.value = true
@@ -140,7 +165,7 @@ async function iniciarContato() {
                     </span>
                   </div>
                   <div v-else class="text-base font-semibold">—</div>
-                  <div class="mono-sm">{{ prestador.qtd_avaliacoes }} avaliações</div>
+                  <div class="mono-sm">{{ prestador.qtd_avaliacoes }} {{ prestador.qtd_avaliacoes === 1 ? 'avaliação' : 'avaliações' }}</div>
                 </div>
                 <span class="h-8 w-px bg-rule-soft"></span>
                 <div>
@@ -150,7 +175,7 @@ async function iniciarContato() {
               </div>
 
               <div class="mt-2 text-xs text-muted md:hidden">
-                {{ temNota ? `${prestador.nota_media!.toFixed(1).replace('.', ',')} · ` : '' }}{{ prestador.qtd_avaliacoes }} avaliações
+                {{ temNota ? `${prestador.nota_media!.toFixed(1).replace('.', ',')} · ` : '' }}{{ prestador.qtd_avaliacoes }} {{ prestador.qtd_avaliacoes === 1 ? 'avaliação' : 'avaliações' }}
               </div>
 
               <div class="mt-3.5 flex flex-wrap gap-1.5">
@@ -221,8 +246,28 @@ async function iniciarContato() {
             </section>
 
             <section>
-              <div class="mono mb-2">Últimas avaliações</div>
-              <p class="text-sm text-muted">Ainda sem avaliações.</p>
+              <div class="mb-3 flex items-baseline justify-between">
+                <div class="mono">Últimas avaliações</div>
+                <button
+                  v-if="totalAvaliacoes > 2"
+                  class="text-[13px] text-ink-soft underline underline-offset-[3px]"
+                  @click="aba = 'avaliacoes'">
+                  Ver todas
+                </button>
+              </div>
+              <div v-if="avaliacoes.length" class="grid gap-3 md:grid-cols-2">
+                <CartaoAvaliacao
+                  v-for="a in avaliacoes.slice(0, 2)"
+                  :key="a.idavaliacao"
+                  :nota="a.nota"
+                  :comentario="a.comentario"
+                  :criado-em="a.criado_em"
+                  :autor="a.autor"
+                  :servico="a.servico"
+                  :resposta="a.resposta"
+                  :resposta-em="a.resposta_em" />
+              </div>
+              <p v-else class="text-sm text-muted">Ainda sem avaliações.</p>
             </section>
           </template>
 
@@ -244,7 +289,32 @@ async function iniciarContato() {
           </template>
 
           <template v-else>
-            <p class="text-sm text-muted">
+            <template v-if="avaliacoes.length">
+              <div class="mono mb-3">
+                {{ totalAvaliacoes }} {{ totalAvaliacoes === 1 ? 'avaliação' : 'avaliações' }}
+                <template v-if="temNota"> · média {{ formatarNota(prestador.nota_media!) }}</template>
+              </div>
+              <div class="grid gap-3 md:grid-cols-2">
+                <CartaoAvaliacao
+                  v-for="a in avaliacoes"
+                  :key="a.idavaliacao"
+                  :nota="a.nota"
+                  :comentario="a.comentario"
+                  :criado-em="a.criado_em"
+                  :autor="a.autor"
+                  :servico="a.servico"
+                  :resposta="a.resposta"
+                  :resposta-em="a.resposta_em" />
+              </div>
+              <button
+                v-if="avaliacoes.length < totalAvaliacoes"
+                :disabled="carregandoAvaliacoes"
+                class="mt-4 rounded-lg border border-ink px-4 py-2 text-sm font-semibold disabled:opacity-60"
+                @click="carregarMaisAvaliacoes">
+                {{ carregandoAvaliacoes ? 'Carregando…' : 'Carregar mais' }}
+              </button>
+            </template>
+            <p v-else class="text-sm text-muted">
               Ainda sem avaliações. Elas aparecem aqui depois que cliente e prestador
               confirmam a conclusão de um serviço.
             </p>

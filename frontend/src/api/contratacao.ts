@@ -2,6 +2,15 @@ import { api } from './client'
 import type { Participante } from './conversa'
 import type { Servico } from './taxonomia'
 
+export interface AvaliacaoResumo {
+  idavaliacao: number
+  nota: number
+  comentario: string | null
+  criado_em: string
+  resposta: string | null
+  resposta_em: string | null
+}
+
 export type EstadoContratacao = 'proposta' | 'combinado' | 'concluido' | 'cancelado'
 
 export interface Contratacao {
@@ -28,8 +37,13 @@ export interface Contratacao {
   cancelado_em: string | null
   idcancelado_por: number | null
   motivo_cancelamento: string | null
-  /** Há algo para quem está vendo fazer (aceitar ou confirmar a conclusão). */
+  /** Há algo para quem está vendo fazer: aceitar, confirmar, avaliar ou responder. */
   aguardando_voce: boolean
+  avaliacao: AvaliacaoResumo | null
+  /** Fim do prazo para o cliente avaliar (30 dias após a conclusão). */
+  avaliar_ate: string | null
+  pode_avaliar: boolean
+  pode_responder: boolean
   criado_em: string
   atualizado_em: string
 }
@@ -102,7 +116,12 @@ export function marcasDaFase(c: Contratacao): { minha: string | null; dela: stri
 
 /** Frase curta do que falta: "Aguardando você aceitar", "Aguardando Pedro confirmar"… */
 export function situacao(c: Contratacao): string {
-  if (c.estado === 'concluido') return 'Concluído pelos dois lados'
+  if (c.estado === 'concluido') {
+    if (c.pode_avaliar) return 'Concluído · aguardando sua avaliação'
+    if (c.pode_responder) return `Avaliado com ${c.avaliacao!.nota}★ · você pode responder`
+    if (c.avaliacao) return `Avaliado com ${c.avaliacao.nota}★`
+    return 'Concluído pelos dois lados'
+  }
   if (c.estado === 'cancelado') return 'Cancelado'
   const { minha } = marcasDaFase(c)
   const verbo = c.estado === 'proposta' ? 'aceitar a proposta' : 'confirmar a conclusão'

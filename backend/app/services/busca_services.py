@@ -3,9 +3,10 @@
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import DateTime, Float, case, exists, false, func, literal, or_
+from sqlalchemy import DateTime, case, exists, func, literal, or_, select
 from sqlalchemy.orm import Session
 
+from app.models.avaliacao_model import Avaliacao
 from app.models.categoria_model import Categoria
 from app.models.contratacao_model import Contratacao
 from app.models.conversa_model import Conversa
@@ -13,6 +14,7 @@ from app.models.prestador_perfil_model import PrestadorPerfil
 from app.models.prestador_servico_model import PrestadorServico
 from app.models.servico_model import Servico
 from app.models.usuario_model import Usuario
+from app.services import avaliacao_services
 from app.utils.data_utils import agora
 
 Ordem = Literal["reputacao", "melhor", "muitas", "recentes"]
@@ -32,13 +34,12 @@ def _atividade(momento: datetime):
 
 
 def _nota_media():
-    # Etapa de avaliações: AVG(avaliacao.nota) do prestador. Enquanto não existe, NULL.
-    return literal(None, Float)
+    """Média das avaliações do prestador da linha (NULL se não tem nenhuma)."""
+    return avaliacao_services.subconsulta_nota_media(PrestadorPerfil.idusuario)
 
 
 def _qtd_avaliacoes():
-    # Etapa de avaliações: COUNT(avaliacao) do prestador.
-    return literal(0)
+    return avaliacao_services.subconsulta_qtd_avaliacoes(PrestadorPerfil.idusuario)
 
 
 def pontuacao_reputacao(momento: datetime):
@@ -132,9 +133,8 @@ def buscar_prestadores(filtros: dict, db: Session) -> dict:
         )
 
     if filtros.get("nota_min"):
-        # Sem avaliações ainda, ninguém atinge uma nota mínima.
-        # Etapa de avaliações: filtrar por _nota_media() >= nota_min.
-        consulta = consulta.filter(false())
+        # Quem não tem avaliação (média NULL) não atinge nota mínima nenhuma.
+        consulta = consulta.filter(_nota_media() >= filtros["nota_min"])
 
     total = consulta.count()
 
@@ -146,9 +146,9 @@ def buscar_prestadores(filtros: dict, db: Session) -> dict:
     score = pontuacao_reputacao(momento)
     ordem: Ordem = filtros.get("ordem") or "reputacao"
     if ordem == "melhor":
-        ordenacao += [_nota_media().desc().nulls_last(), score.desc()]
+        ordenacao += [_nota_media().desc().nulls_last(), _qtd_avaliacoes().desc(), score.desc()]
     elif ordem == "muitas":
-        ordenacao += [_qtd_avaliacoes().desc(), score.desc()]
+        ordenacao += [_qtd_avaliacoes().desc(), _nota_media().desc().nulls_last(), score.desc()]
     elif ordem == "recentes":
         ordenacao.append(PrestadorPerfil.criado_em.desc())
     else:
@@ -163,10 +163,35 @@ def buscar_prestadores(filtros: dict, db: Session) -> dict:
         .all()
     )
 
-    return {"total": total, "itens": [_cartao(perfil) for perfil in perfis]}
+    ids = [perfil.idusuario for perfil in perfis]
+    estatisticas = _estatisticas(ids, db)
+    destaques = avaliacao_services.destaques(ids, db)
+    return {
+        "total": total,
+        "itens": [
+            _cartao(perfil, *estatisticas.get(perfil.idusuario, (None, 0)), destaques)
+            for perfil in perfis
+        ],
+    }
 
 
-def _cartao(perfil: PrestadorPerfil) -> dict:
+def _estatisticas(idsusuario: list[int], db: Session) -> dict[int, tuple[float | None, int]]:
+    """(nota média, quantidade) de cada prestador da página, numa consulta só."""
+    if not idsusuario:
+        return {}
+    linhas = db.execute(
+        select(Conversa.idprestador, func.avg(Avaliacao.nota), func.count(Avaliacao.idavaliacao))
+        .join(Contratacao, Contratacao.idconversa == Conversa.idconversa)
+        .join(Avaliacao, Avaliacao.idcontratacao == Contratacao.idcontratacao)
+        .where(Conversa.idprestador.in_(idsusuario))
+        .group_by(Conversa.idprestador)
+    ).all()
+    return {idp: (round(float(media), 2), qtd) for idp, media, qtd in linhas}
+
+
+def _cartao(
+    perfil: PrestadorPerfil, nota_media: float | None, qtd: int, destaques: dict[int, str]
+) -> dict:
     usuario = perfil.usuario
     return {
         "idusuario": usuario.idusuario,
@@ -179,7 +204,7 @@ def _cartao(perfil: PrestadorPerfil) -> dict:
         "cnpj_validado": perfil.cnpj_validado,
         "servicos": perfil.servicos_ordenados,
         "ultimo_acesso_em": usuario.ultimo_acesso_em,
-        # Preenchidos pela etapa de avaliações.
-        "nota_media": None,
-        "qtd_avaliacoes": 0,
+        "nota_media": nota_media,
+        "qtd_avaliacoes": qtd,
+        "destaque": destaques.get(usuario.idusuario),
     }

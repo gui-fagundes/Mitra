@@ -132,7 +132,12 @@ function valor(c: Contratacao): string | null {
             :class="c.aguardando_voce
               ? 'rounded-lg bg-ink px-3.5 py-2 text-[13px] font-semibold text-white'
               : 'rounded-lg border border-rule px-3.5 py-2 text-[13px]'">
-            {{ c.aguardando_voce ? (c.estado === 'proposta' ? 'Ver proposta' : 'Confirmar') : 'Detalhes' }}
+            {{
+              !c.aguardando_voce ? 'Detalhes'
+              : c.estado === 'proposta' ? 'Ver proposta'
+              : c.estado === 'combinado' ? 'Confirmar'
+              : c.pode_avaliar ? 'Avaliar' : 'Responder'
+            }}
           </router-link>
         </div>
       </article>

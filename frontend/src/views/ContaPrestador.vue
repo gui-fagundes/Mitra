@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
+import { formatarNota } from '../api/avaliacao'
 import { ErroApi, urlArquivo } from '../api/client'
 import { contratacaoApi, estaAberta, type Contratacao } from '../api/contratacao'
 import { contaApi } from '../api/conta'
@@ -29,10 +30,16 @@ const abas: Array<{ id: Aba; label: string; curto: string }> = [
   { id: 'dados', label: 'Dados da conta', curto: 'Dados' },
 ]
 
-// Reputação vem da etapa de avaliações.
 const contratacoesRecebidas = ref<Contratacao[]>([])
+const reputacao = ref<{ nota: number | null; qtd: number }>({ nota: null, qtd: 0 })
 const kpis = computed(() => [
-  { label: 'Reputação', valor: '—', detalhe: 'Sem avaliações ainda' },
+  {
+    label: 'Reputação',
+    valor: reputacao.value.nota != null ? `★ ${formatarNota(reputacao.value.nota)}` : '—',
+    detalhe: reputacao.value.qtd
+      ? `${reputacao.value.qtd} ${reputacao.value.qtd === 1 ? 'avaliação' : 'avaliações'}`
+      : 'Sem avaliações ainda',
+  },
   {
     label: 'Contratações em andamento',
     valor: String(contratacoesRecebidas.value.filter(estaAberta).length),
@@ -159,6 +166,8 @@ onMounted(async () => {
     if (usuario.e_prestador) {
       vitrine.value = await prestadorApi.obterVitrine()
       contratacoesRecebidas.value = await contratacaoApi.minhas({ papel: 'prestador' })
+      const publico = await prestadorApi.obterPublico(usuario.idusuario)
+      reputacao.value = { nota: publico.nota_media, qtd: publico.qtd_avaliacoes }
     } else {
       semVitrine.value = true
     }
@@ -215,7 +224,13 @@ async function sair() {
         tamanho="h-14 w-14 text-lg" />
       <div class="min-w-0 flex-1">
         <div class="text-[15px] font-semibold">{{ sessao.usuario?.nome }}</div>
-        <div class="mt-0.5 text-xs text-muted">Sem avaliações ainda</div>
+        <div class="mt-0.5 text-xs text-muted">
+          <template v-if="reputacao.nota != null">
+            <span class="text-gold">★</span> {{ formatarNota(reputacao.nota) }} · {{ reputacao.qtd }}
+            {{ reputacao.qtd === 1 ? 'avaliação' : 'avaliações' }}
+          </template>
+          <template v-else>Sem avaliações ainda</template>
+        </div>
       </div>
     </div>
 

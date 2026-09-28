@@ -448,14 +448,15 @@ const temMais = computed(() => itens.value.length < total.value)
                   <template v-if="p.qtd_avaliacoes && p.nota_media != null">
                     <StarRating :value="p.nota_media" />
                     <span class="text-xs text-ink-soft">
-                      {{ p.nota_media.toFixed(1).replace('.', ',') }} · {{ p.qtd_avaliacoes }} avaliações
+                      {{ p.nota_media.toFixed(1).replace('.', ',') }} · {{ p.qtd_avaliacoes }} {{ p.qtd_avaliacoes === 1 ? 'avaliação' : 'avaliações' }}
                     </span>
                   </template>
                   <span v-else class="text-xs text-muted">
                     Novo no Mitra{{ p.cidade ? ` · ${rotuloCidade(p.cidade)}` : '' }}
                   </span>
                 </div>
-                <div v-if="p.bio" class="mt-1.5 line-clamp-2 hidden text-xs text-muted md:block">{{ p.bio }}</div>
+                <div v-if="p.destaque" class="mt-1.5 line-clamp-2 hidden text-xs italic text-muted md:block">“{{ p.destaque }}”</div>
+                <div v-else-if="p.bio" class="mt-1.5 line-clamp-2 hidden text-xs text-muted md:block">{{ p.bio }}</div>
                 <div class="mt-2 flex flex-wrap gap-1.5">
                   <CategoryChip v-for="s in p.servicos" :key="s.idservico">{{ s.nome }}</CategoryChip>
                   <CategoryChip v-if="p.cnpj_validado" tone="gold">CNPJ ✓</CategoryChip>

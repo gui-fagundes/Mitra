@@ -24,7 +24,7 @@ from app.models.contratacao_model import ESTADOS_ABERTOS, Contratacao
 from app.models.conversa_model import Conversa
 from app.models.servico_model import Servico
 from app.models.usuario_model import Usuario
-from app.services import conversa_services
+from app.services import avaliacao_services, conversa_services
 from app.utils.data_utils import agora
 
 CAMPOS_PROPOSTA = ("idservico", "descricao", "local", "data_prevista", "valor_estimado")
@@ -67,7 +67,8 @@ def _servico_ativo(idservico: int, db: Session) -> Servico:
     return servico
 
 
-def _obter(usuario: Usuario, idcontratacao: int, db: Session) -> Contratacao:
+def obter_participando(usuario: Usuario, idcontratacao: int, db: Session) -> Contratacao:
+    """A contratação, se o usuário participa da conversa. 404 se não existe, 403 se é de outros."""
     contratacao = db.get(Contratacao, idcontratacao)
     if contratacao is None:
         raise HTTPException(
@@ -116,6 +117,11 @@ def _aguardando(contratacao: Contratacao, usuario: Usuario) -> bool:
         return getattr(contratacao, _campo_do_papel(contratacao, usuario, "aceite")) is None
     if contratacao.estado == "combinado":
         return getattr(contratacao, _campo_do_papel(contratacao, usuario, "conclusao")) is None
+    if contratacao.estado == "concluido":
+        # Cliente: avaliar dentro do prazo. Prestador: responder a avaliação recebida.
+        return avaliacao_services.pode_avaliar(
+            contratacao, usuario.idusuario
+        ) or avaliacao_services.pode_responder(contratacao, usuario.idusuario)
     return False
 
 
@@ -129,6 +135,10 @@ def resumo(contratacao: Contratacao, usuario: Usuario) -> dict:
         outra_parte=contratacao.conversa.outra_parte(usuario.idusuario),
         servico=contratacao.servico,
         aguardando_voce=_aguardando(contratacao, usuario),
+        avaliacao=contratacao.avaliacao,
+        avaliar_ate=avaliacao_services.avaliar_ate(contratacao),
+        pode_avaliar=avaliacao_services.pode_avaliar(contratacao, usuario.idusuario),
+        pode_responder=avaliacao_services.pode_responder(contratacao, usuario.idusuario),
     )
     return dados
 
@@ -177,7 +187,7 @@ def propor(usuario: Usuario, idconversa: int, payload: dict, db: Session) -> dic
 
 def editar_proposta(usuario: Usuario, idcontratacao: int, payload: dict, db: Session) -> dict:
     """`payload` só com os campos enviados (exclude_unset)."""
-    contratacao = _obter(usuario, idcontratacao, db)
+    contratacao = obter_participando(usuario, idcontratacao, db)
     _exigir_estado(contratacao, "proposta", acao="editar a proposta")
 
     if payload.get("idservico") is not None:
@@ -204,7 +214,7 @@ def editar_proposta(usuario: Usuario, idcontratacao: int, payload: dict, db: Ses
 
 
 def aceitar(usuario: Usuario, idcontratacao: int, db: Session) -> dict:
-    contratacao = _obter(usuario, idcontratacao, db)
+    contratacao = obter_participando(usuario, idcontratacao, db)
     _exigir_estado(contratacao, "proposta", acao="aceitar")
 
     campo = _campo_do_papel(contratacao, usuario, "aceite")
@@ -230,7 +240,7 @@ def aceitar(usuario: Usuario, idcontratacao: int, db: Session) -> dict:
 
 
 def confirmar_conclusao(usuario: Usuario, idcontratacao: int, payload: dict, db: Session) -> dict:
-    contratacao = _obter(usuario, idcontratacao, db)
+    contratacao = obter_participando(usuario, idcontratacao, db)
     _exigir_estado(contratacao, "combinado", acao="confirmar a conclusão")
 
     novo_valor = payload.get("valor_final")
@@ -275,7 +285,7 @@ def confirmar_conclusao(usuario: Usuario, idcontratacao: int, payload: dict, db:
 
 
 def cancelar(usuario: Usuario, idcontratacao: int, payload: dict, db: Session) -> dict:
-    contratacao = _obter(usuario, idcontratacao, db)
+    contratacao = obter_participando(usuario, idcontratacao, db)
     _exigir_estado(contratacao, *ESTADOS_ABERTOS, acao="cancelar")
 
     motivo = _texto_opcional(payload.get("motivo"))
@@ -299,7 +309,7 @@ def cancelar(usuario: Usuario, idcontratacao: int, payload: dict, db: Session) -
 
 
 def obter(usuario: Usuario, idcontratacao: int, db: Session) -> dict:
-    return resumo(_obter(usuario, idcontratacao, db), usuario)
+    return resumo(obter_participando(usuario, idcontratacao, db), usuario)
 
 
 def listar_da_conversa(usuario: Usuario, idconversa: int, db: Session) -> list[dict]:
