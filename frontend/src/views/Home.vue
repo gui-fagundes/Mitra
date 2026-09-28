@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { taxonomiaApi, type Categoria } from '../api/taxonomia'
 import PublicNav from '../components/PublicNav.vue'
 
 const router = useRouter()
@@ -15,43 +16,19 @@ function buscar() {
   })
 }
 
-const categorias = [
-  {
-    slug: 'conserto',
-    nome: 'Conserto',
-    servicos: 4,
-    resumo: 'Eletroeletrônicos, roupas, móveis, construção',
-    icon: 'fa-wrench',
-  },
-  {
-    slug: 'educacao',
-    nome: 'Educação',
-    servicos: 3,
-    resumo: 'Aulas, personal, treinamentos',
-    icon: 'fa-graduation-cap',
-  },
-  {
-    slug: 'pets',
-    nome: 'Pets',
-    servicos: 4,
-    resumo: 'Adestramento, banho, cuidador, hospedagem',
-    icon: 'fa-paw',
-  },
-  {
-    slug: 'entretenimento',
-    nome: 'Entretenimento',
-    servicos: 3,
-    resumo: 'Música, recreação, festas',
-    icon: 'fa-music',
-  },
-  {
-    slug: 'artesanato',
-    nome: 'Artesanato',
-    servicos: 3,
-    resumo: 'Móveis, roupas, decoração',
-    icon: 'fa-paint-brush',
-  },
-]
+const categorias = ref<Categoria[]>([])
+
+function resumo(categoria: Categoria): string {
+  return categoria.servicos.map((s) => s.nome).join(', ')
+}
+
+onMounted(async () => {
+  try {
+    categorias.value = await taxonomiaApi.listarCategorias()
+  } catch {
+    // Sem a API, a seção de categorias fica vazia; a busca continua funcionando.
+  }
+})
 
 const populares = ['Eletricista', 'Adestramento', 'Aula particular', 'Personal trainer']
 </script>
@@ -194,21 +171,21 @@ const populares = ['Eletricista', 'Adestramento', 'Aula particular', 'Personal t
       </div>
       <div class="grid grid-cols-2 gap-3 md:grid-cols-5 md:gap-4">
         <router-link
-          v-for="cat in categorias"
+          v-for="(cat, i) in categorias"
           :key="cat.slug"
           :to="{ name: 'buscar', query: { categoria: cat.slug } }"
           :class="[
             'block rounded-2xl border border-rule bg-surface p-4 md:p-5',
-            categorias[categorias.length - 1].slug === cat.slug ? 'col-span-2 md:col-span-1' : '',
+            i === categorias.length - 1 ? 'col-span-2 md:col-span-1' : '',
           ]"
         >
           <div
             class="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-gold-soft text-gold-ink md:mb-3.5"
           >
-            <i :class="['fa text-lg', cat.icon]"></i>
+            <i :class="['fa text-lg', cat.icone]"></i>
           </div>
           <div class="text-base font-semibold">{{ cat.nome }}</div>
-          <div class="mt-1 text-[12px] text-muted">{{ cat.resumo }}</div>
+          <div class="mt-1 text-[12px] text-muted">{{ resumo(cat) }}</div>
         </router-link>
       </div>
     </section>

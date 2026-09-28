@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { contaApi } from '../api/conta'
+import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
+import { ErroApi } from '../api/client'
+import { contaApi, type ContaAtualizacao, type Usuario } from '../api/conta'
 import { useSessaoStore } from '../stores/sessao'
 import PublicNav from '../components/PublicNav.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -12,6 +14,71 @@ const sessao = useSessaoStore()
 
 type Aba = 'contratacoes' | 'dados' | 'preferencias'
 const aba = ref<Aba>('contratacoes')
+
+// Dados da conta e preferências — PATCH /conta
+const cidades = ref<Cidade[]>([])
+const formNome = ref('')
+const formIdcidade = ref<number | null>(null)
+const formTelefone = ref('')
+const notificarEmail = ref(true)
+const buscaSomenteCnpj = ref(false)
+const salvando = ref(false)
+const mensagemDados = ref<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
+
+function preencherFormulario(usuario: Usuario) {
+  formNome.value = usuario.nome
+  formIdcidade.value = usuario.cidade?.idcidade ?? null
+  formTelefone.value = usuario.telefone ?? ''
+  notificarEmail.value = usuario.notificar_email ?? true
+  buscaSomenteCnpj.value = usuario.busca_somente_cnpj ?? false
+}
+
+async function atualizarConta(dados: ContaAtualizacao) {
+  const usuario = await contaApi.atualizar(dados)
+  sessao.definirUsuario(usuario)
+  preencherFormulario(usuario)
+}
+
+async function salvarDados() {
+  mensagemDados.value = null
+  salvando.value = true
+  try {
+    await atualizarConta({
+      nome: formNome.value,
+      idcidade: formIdcidade.value,
+      telefone: formTelefone.value || null,
+    })
+    mensagemDados.value = { tipo: 'ok', texto: 'Alterações salvas.' }
+  } catch (e) {
+    mensagemDados.value = {
+      tipo: 'erro',
+      texto: e instanceof ErroApi ? e.detalhe : 'Erro inesperado',
+    }
+  } finally {
+    salvando.value = false
+  }
+}
+
+async function salvarPreferencia(dados: ContaAtualizacao) {
+  try {
+    await atualizarConta(dados)
+  } catch {
+    // Volta o checkbox para o valor salvo.
+    if (sessao.usuario) preencherFormulario(sessao.usuario)
+  }
+}
+
+onMounted(async () => {
+  if (sessao.usuario) preencherFormulario(sessao.usuario)
+  try {
+    const [usuario, lista] = await Promise.all([contaApi.obter(), cidadeApi.listar()])
+    sessao.definirUsuario(usuario)
+    preencherFormulario(usuario)
+    cidades.value = lista
+  } catch {
+    // Mantém o que veio do armazenamento local.
+  }
+})
 
 type Filtro = 'todos' | 'andamento' | 'concluidos'
 const filtro = ref<Filtro>('andamento')
@@ -224,35 +291,55 @@ async function sair() {
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">Nome completo</span>
                 <input
-                  :value="sessao.usuario?.nome ?? '[Seu nome]'"
+                  v-model="formNome"
                   class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">E-mail</span>
                 <input
-                  :value="sessao.usuario?.email ?? 'voce@exemplo.com'"
-                  class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
+                  :value="sessao.usuario?.email ?? ''"
+                  disabled
+                  title="A troca de e-mail ainda não está disponível."
+                  class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm text-muted" />
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">Cidade</span>
-                <select class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm">
-                  <option>Rio Grande, RS</option>
+                <select
+                  v-model="formIdcidade"
+                  class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm">
+                  <option :value="null">—</option>
+                  <option v-for="c in cidades" :key="c.idcidade" :value="c.idcidade">
+                    {{ rotuloCidade(c) }}
+                  </option>
                 </select>
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">Telefone</span>
                 <input
-                  value="(53) 99999-9999"
+                  v-model="formTelefone"
+                  type="tel"
+                  placeholder="(53) 99999-9999"
                   class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
               </label>
             </div>
             <div class="mt-5 flex flex-col items-start justify-between gap-3 border-t border-dashed border-rule-soft pt-4 md:flex-row md:items-center">
+              <!-- Exportação LGPD ainda não implementada no backend (GET /conta/exportar). -->
               <a href="#" class="text-[13px] text-ink-soft underline">
                 Exportar meus dados · LGPD
               </a>
-              <button class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white">
-                Salvar alterações
-              </button>
+              <div class="flex items-center gap-3">
+                <span
+                  v-if="mensagemDados"
+                  :class="['text-[13px]', mensagemDados.tipo === 'ok' ? 'text-good' : 'text-red-700']">
+                  {{ mensagemDados.texto }}
+                </span>
+                <button
+                  :disabled="salvando"
+                  class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  @click="salvarDados">
+                  {{ salvando ? 'Salvando…' : 'Salvar alterações' }}
+                </button>
+              </div>
             </div>
           </div>
         </template>
@@ -271,11 +358,17 @@ async function sair() {
           <div class="space-y-3 rounded-2xl border border-rule bg-surface p-6">
             <label class="flex items-center justify-between border-b border-rule-soft py-3">
               <span class="text-sm">Notificações por e-mail</span>
-              <input type="checkbox" checked />
+              <input
+                v-model="notificarEmail"
+                type="checkbox"
+                @change="salvarPreferencia({ notificar_email: notificarEmail })" />
             </label>
             <label class="flex items-center justify-between border-b border-rule-soft py-3">
               <span class="text-sm">Somente prestadores com CNPJ validado</span>
-              <input type="checkbox" />
+              <input
+                v-model="buscaSomenteCnpj"
+                type="checkbox"
+                @change="salvarPreferencia({ busca_somente_cnpj: buscaSomenteCnpj })" />
             </label>
             <label class="flex items-center justify-between py-3">
               <span class="text-sm">Manter histórico de buscas</span>
