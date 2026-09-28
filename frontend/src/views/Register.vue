@@ -191,7 +191,7 @@ const papeis: Array<{ id: Papel; t: string; d: string }> = [
                 type="text"
                 required
                 placeholder="Como devemos te chamar"
-                class="h-[46px] rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+                class="h-[46px] rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
               />
             </label>
 
@@ -203,7 +203,7 @@ const papeis: Array<{ id: Papel; t: string; d: string }> = [
                 required
                 autocomplete="email"
                 placeholder="voce@exemplo.com"
-                class="h-[46px] rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+                class="h-[46px] rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
               />
             </label>
 
@@ -211,7 +211,7 @@ const papeis: Array<{ id: Papel; t: string; d: string }> = [
               <span class="text-[13px] font-medium text-ink-soft">Cidade</span>
               <select
                 v-model="idcidade"
-                class="h-[46px] appearance-none rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+                class="h-[46px] appearance-none rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
               >
                 <option v-for="c in cidades" :key="c.idcidade" :value="c.idcidade">
                   {{ rotuloCidade(c) }}
@@ -227,7 +227,7 @@ const papeis: Array<{ id: Papel; t: string; d: string }> = [
                 v-model="telefone"
                 type="tel"
                 placeholder="(53) 99999-9999"
-                class="h-[46px] rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+                class="h-[46px] rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
               />
             </label>
 
@@ -240,7 +240,7 @@ const papeis: Array<{ id: Papel; t: string; d: string }> = [
                 minlength="8"
                 autocomplete="new-password"
                 placeholder="Mínimo 8 caracteres"
-                class="h-[46px] rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+                class="h-[46px] rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
               />
             </label>
 
@@ -252,7 +252,7 @@ const papeis: Array<{ id: Papel; t: string; d: string }> = [
                 required
                 minlength="8"
                 placeholder="Repita a senha"
-                class="h-[46px] rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+                class="h-[46px] rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
               />
             </label>
           </div>

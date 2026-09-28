@@ -56,7 +56,7 @@ async function enviar() {
           required
           autocomplete="email"
           placeholder="voce@exemplo.com"
-          class="h-[46px] w-full rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+          class="h-[46px] w-full rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
         />
       </label>
 

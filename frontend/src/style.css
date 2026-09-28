@@ -79,3 +79,13 @@ body {
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
+
+/* Borda dos campos de formulário: cor da régua em repouso, tinta no foco.
+   Um utilitário só no lugar do par "border-rule focus:border-ink". */
+@utility borda-campo {
+  border-color: var(--color-rule);
+
+  &:focus {
+    border-color: var(--color-ink);
+  }
+}

@@ -65,7 +65,7 @@ async function redefinir() {
           minlength="8"
           autocomplete="new-password"
           placeholder="Mínimo 8 caracteres"
-          class="h-[46px] w-full rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+          class="h-[46px] w-full rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
         />
       </label>
 
@@ -78,7 +78,7 @@ async function redefinir() {
           minlength="8"
           autocomplete="new-password"
           placeholder="Repita a senha"
-          class="h-[46px] w-full rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
+          class="h-[46px] w-full rounded-lg border borda-campo bg-surface px-3 text-[15px] outline-none"
         />
       </label>
 
