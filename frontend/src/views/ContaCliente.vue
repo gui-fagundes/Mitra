@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
-import { ErroApi } from '../api/client'
+import { rotuloCidade } from '../api/cidade'
 import { contaApi, type ContaAtualizacao, type Usuario } from '../api/conta'
 import { useSessaoStore } from '../stores/sessao'
+import FormularioDadosConta from '../components/FormularioDadosConta.vue'
 import FotoUsuario from '../components/FotoUsuario.vue'
 import PublicNav from '../components/PublicNav.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -16,95 +16,32 @@ const sessao = useSessaoStore()
 type Aba = 'contratacoes' | 'dados' | 'preferencias'
 const aba = ref<Aba>('contratacoes')
 
-// Dados da conta e preferências — PATCH /conta
-const cidades = ref<Cidade[]>([])
-const formNome = ref('')
-const formIdcidade = ref<number | null>(null)
-const formTelefone = ref('')
+// Preferências — PATCH /conta (os dados da conta ficam em FormularioDadosConta)
 const notificarEmail = ref(true)
 const buscaSomenteCnpj = ref(false)
-const salvando = ref(false)
-const mensagemDados = ref<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
 
-function preencherFormulario(usuario: Usuario) {
-  formNome.value = usuario.nome
-  formIdcidade.value = usuario.cidade?.idcidade ?? null
-  formTelefone.value = usuario.telefone ?? ''
+function preencherPreferencias(usuario: Usuario) {
   notificarEmail.value = usuario.notificar_email ?? true
   buscaSomenteCnpj.value = usuario.busca_somente_cnpj ?? false
 }
 
-async function atualizarConta(dados: ContaAtualizacao) {
-  const usuario = await contaApi.atualizar(dados)
-  sessao.definirUsuario(usuario)
-  preencherFormulario(usuario)
-}
-
-async function salvarDados() {
-  mensagemDados.value = null
-  salvando.value = true
-  try {
-    await atualizarConta({
-      nome: formNome.value,
-      idcidade: formIdcidade.value,
-      telefone: formTelefone.value || null,
-    })
-    mensagemDados.value = { tipo: 'ok', texto: 'Alterações salvas.' }
-  } catch (e) {
-    mensagemDados.value = {
-      tipo: 'erro',
-      texto: e instanceof ErroApi ? e.detalhe : 'Erro inesperado',
-    }
-  } finally {
-    salvando.value = false
-  }
-}
-
-const enviandoFoto = ref(false)
-const erroFoto = ref<string | null>(null)
-
-async function enviarFoto(evento: Event) {
-  const campo = evento.target as HTMLInputElement
-  const arquivo = campo.files?.[0]
-  campo.value = '' // permite escolher o mesmo arquivo de novo
-  if (!arquivo) return
-
-  erroFoto.value = null
-  enviandoFoto.value = true
-  try {
-    sessao.definirUsuario(await contaApi.enviarFoto(arquivo))
-  } catch (e) {
-    erroFoto.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
-  } finally {
-    enviandoFoto.value = false
-  }
-}
-
-async function removerFoto() {
-  erroFoto.value = null
-  try {
-    sessao.definirUsuario(await contaApi.removerFoto())
-  } catch (e) {
-    erroFoto.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
-  }
-}
-
 async function salvarPreferencia(dados: ContaAtualizacao) {
   try {
-    await atualizarConta(dados)
+    const usuario = await contaApi.atualizar(dados)
+    sessao.definirUsuario(usuario)
+    preencherPreferencias(usuario)
   } catch {
     // Volta o checkbox para o valor salvo.
-    if (sessao.usuario) preencherFormulario(sessao.usuario)
+    if (sessao.usuario) preencherPreferencias(sessao.usuario)
   }
 }
 
 onMounted(async () => {
-  if (sessao.usuario) preencherFormulario(sessao.usuario)
+  if (sessao.usuario) preencherPreferencias(sessao.usuario)
   try {
-    const [usuario, lista] = await Promise.all([contaApi.obter(), cidadeApi.listar()])
+    const usuario = await contaApi.obter()
     sessao.definirUsuario(usuario)
-    preencherFormulario(usuario)
-    cidades.value = lista
+    preencherPreferencias(usuario)
   } catch {
     // Mantém o que veio do armazenamento local.
   }
@@ -211,6 +148,11 @@ async function sair() {
           <a href="#" class="rounded-lg px-3.5 py-2.5 text-sm text-ink-soft hover:bg-bg">
             Termos e privacidade
           </a>
+          <router-link
+            :to="{ name: 'conta-prestador' }"
+            class="mt-2 rounded-lg border border-dashed border-rule px-3.5 py-2.5 text-sm text-ink-soft hover:bg-bg">
+            {{ sessao.usuario?.e_prestador ? 'Ir para a área do prestador' : 'Quero oferecer serviços' }}
+          </router-link>
         </nav>
         <div class="mt-auto border-t border-rule-soft pt-5">
           <button class="text-[13px] text-ink-soft underline" @click="sair">Sair</button>
@@ -321,93 +263,7 @@ async function sair() {
             </div>
           </div>
 
-          <div class="rounded-2xl border border-rule bg-surface p-6">
-            <!-- Foto: upload direto, independente do "Salvar alterações" -->
-            <div class="mb-5 flex items-center gap-4 border-b border-dashed border-rule-soft pb-5">
-              <FotoUsuario
-                :url="sessao.usuario?.foto_url"
-                :nome="sessao.usuario?.nome"
-                tamanho="h-16 w-16 text-xl" />
-              <div class="flex flex-col gap-1.5">
-                <div class="flex items-center gap-3">
-                  <label
-                    :class="['cursor-pointer rounded-lg border border-ink px-3 py-1.5 text-[13px] font-medium',
-                      enviandoFoto ? 'pointer-events-none opacity-60' : '']">
-                    {{ enviandoFoto ? 'Enviando…' : sessao.usuario?.foto_url ? 'Trocar foto' : 'Enviar foto' }}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      class="sr-only"
-                      @change="enviarFoto" />
-                  </label>
-                  <button
-                    v-if="sessao.usuario?.foto_url"
-                    type="button"
-                    class="text-[13px] text-ink-soft underline underline-offset-[3px]"
-                    @click="removerFoto">
-                    Remover
-                  </button>
-                </div>
-                <span v-if="erroFoto" class="text-[12px] text-red-700">{{ erroFoto }}</span>
-                <span v-else class="text-[12px] text-muted">JPG, PNG ou WebP, até 5 MB.</span>
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:grid-cols-2">
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Nome completo</span>
-                <input
-                  v-model="formNome"
-                  class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">E-mail</span>
-                <input
-                  :value="sessao.usuario?.email ?? ''"
-                  disabled
-                  title="A troca de e-mail ainda não está disponível."
-                  class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm text-muted" />
-              </label>
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Cidade</span>
-                <select
-                  v-model="formIdcidade"
-                  class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm">
-                  <option :value="null">—</option>
-                  <option v-for="c in cidades" :key="c.idcidade" :value="c.idcidade">
-                    {{ rotuloCidade(c) }}
-                  </option>
-                </select>
-              </label>
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Telefone</span>
-                <input
-                  v-model="formTelefone"
-                  type="tel"
-                  placeholder="(53) 99999-9999"
-                  class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-            </div>
-            <div class="mt-5 flex flex-col items-start justify-between gap-3 border-t border-dashed border-rule-soft pt-4 md:flex-row md:items-center">
-              <!-- Exportação LGPD ainda não implementada no backend (GET /conta/exportar). -->
-              <a href="#" class="text-[13px] text-ink-soft underline">
-                Exportar meus dados · LGPD
-              </a>
-              <div class="flex items-center gap-3">
-                <span
-                  v-if="mensagemDados"
-                  :class="['text-[13px]', mensagemDados.tipo === 'ok' ? 'text-good' : 'text-red-700']">
-                  {{ mensagemDados.texto }}
-                </span>
-                <button
-                  :disabled="salvando"
-                  class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                  @click="salvarDados">
-                  {{ salvando ? 'Salvando…' : 'Salvar alterações' }}
-                </button>
-              </div>
-            </div>
-          </div>
+          <FormularioDadosConta />
         </template>
 
         <!-- PREFERÊNCIAS -->

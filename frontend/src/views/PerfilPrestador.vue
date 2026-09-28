@@ -1,53 +1,63 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { rotuloCidade } from '../api/cidade'
+import { ErroApi } from '../api/client'
+import { prestadorApi, type PrestadorPublico } from '../api/prestador'
+import { atividadeRelativa, formatarFaixaPreco, tempoDesde } from '../utils/formatacao'
+import CategoryChip from '../components/CategoryChip.vue'
+import FotoUsuario from '../components/FotoUsuario.vue'
 import PublicNav from '../components/PublicNav.vue'
 import StarRating from '../components/StarRating.vue'
-import CategoryChip from '../components/CategoryChip.vue'
 import Tabs from '../components/Tabs.vue'
 
+const route = useRoute()
 const router = useRouter()
 
 type Aba = 'sobre' | 'portfolio' | 'avaliacoes'
 const aba = ref<Aba>('sobre')
 
-const abas = [
+const prestador = ref<PrestadorPublico | null>(null)
+const carregando = ref(true)
+const naoEncontrado = ref(false)
+const erro = ref<string | null>(null)
+
+const abas = computed(() => [
   { id: 'sobre' as const, label: 'Sobre' },
   { id: 'portfolio' as const, label: 'Portfólio' },
-  { id: 'avaliacoes' as const, label: 'Avaliações (27)' },
-]
+  { id: 'avaliacoes' as const, label: `Avaliações (${prestador.value?.qtd_avaliacoes ?? 0})` },
+])
 
-const prestador = {
-  nome: '[Nome do prestador]',
-  cidade: 'Rio Grande, RS',
-  atendeHa: '2 anos',
-  nota: 4.9,
-  avaliacoes: 27,
-  servicosConcluidos: 48,
-  respostaMedia: '~4h',
-  categorias: ['Eletroeletrônicos', 'Construção / manutenção'],
-  cnpj: true,
-  bio: '[Bio do prestador — 2 a 4 parágrafos descrevendo experiência, tipos de serviço e diferencial. Preenchido no cadastro; editável pelo próprio prestador na área logada.]',
-  ultimaAtividade: 'hoje',
-  portfolioCount: 9,
+const cidade = computed(() =>
+  prestador.value?.cidade ? rotuloCidade(prestador.value.cidade) : null,
+)
+const temNota = computed(() => prestador.value?.nota_media != null)
+
+async function carregar(id: number) {
+  carregando.value = true
+  naoEncontrado.value = false
+  erro.value = null
+  try {
+    prestador.value = await prestadorApi.obterPublico(id)
+  } catch (e) {
+    prestador.value = null
+    if (e instanceof ErroApi && e.status === 404) naoEncontrado.value = true
+    else erro.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
+  } finally {
+    carregando.value = false
+  }
 }
 
-const avaliacoes = [
-  {
-    autor: '[Cliente A.]',
-    nota: 5,
-    quando: 'há 2 semanas · instalação elétrica',
-    texto: '"Chegou no horário, resolveu rápido e explicou tudo. Recomendo."',
+watch(
+  () => Number(route.params.id),
+  (id) => {
+    aba.value = 'sobre'
+    carregar(id)
   },
-  {
-    autor: '[Cliente B.]',
-    nota: 4,
-    quando: 'há 1 mês · conserto de eletrodoméstico',
-    texto: '"Bom trabalho, só demorou um pouco para responder inicialmente."',
-    resposta: '"Obrigado pelo retorno! Vou ajustar minha rotina de mensagens."',
-  },
-]
+  { immediate: true },
+)
 
+// A conversa e a contratação vêm com a etapa de contratação e chat.
 function iniciarContato() {
   router.push({ name: 'mensagens' })
 }
@@ -58,9 +68,11 @@ function iniciarContato() {
     <div class="hidden md:block">
       <PublicNav />
       <div class="px-16 py-4 text-[13px] text-muted">
-        <router-link to="/buscar" class="text-ink-soft">Eletricistas em Rio Grande</router-link>
-        <span class="mx-2">›</span>
-        <span>{{ prestador.nome }}</span>
+        <router-link to="/buscar" class="text-ink-soft">Buscar prestadores</router-link>
+        <template v-if="prestador">
+          <span class="mx-2">›</span>
+          <span>{{ prestador.nome }}</span>
+        </template>
       </div>
     </div>
 
@@ -68,74 +80,61 @@ function iniciarContato() {
       <button aria-label="Voltar" class="flex h-9 w-9 items-center justify-center rounded-lg border border-rule" @click="router.back()">
         <i class="fa fa-arrow-left"></i>
       </button>
-      <div class="flex gap-2">
-        <button aria-label="Compartilhar" class="flex h-9 w-9 items-center justify-center rounded-lg border border-rule">
-          <i class="fa fa-share-alt"></i>
-        </button>
-        <button aria-label="Mais" class="flex h-9 w-9 items-center justify-center rounded-lg border border-rule">
-          <i class="fa fa-ellipsis-h"></i>
-        </button>
-      </div>
     </div>
 
-    <div class="grid gap-8 px-0 md:grid-cols-[1fr_360px] md:gap-12 md:px-16 md:pb-10">
+    <div v-if="carregando" class="px-5 py-16 text-center text-sm text-muted md:px-16">Carregando…</div>
+
+    <div v-else-if="naoEncontrado || erro" class="px-5 py-16 text-center md:px-16">
+      <div class="text-lg font-semibold">{{ naoEncontrado ? 'Prestador não encontrado' : 'Não foi possível carregar o perfil' }}</div>
+      <p class="mt-1 text-sm text-muted">
+        {{ naoEncontrado ? 'O perfil pode ter sido desativado ou o link está incorreto.' : erro }}
+      </p>
+      <router-link to="/buscar" class="mt-4 inline-block text-sm text-ink underline underline-offset-[3px]">
+        Buscar outros prestadores
+      </router-link>
+    </div>
+
+    <div v-else-if="prestador" class="grid gap-8 px-0 md:grid-cols-[1fr_360px] md:gap-12 md:px-16 md:pb-10">
       <div>
         <div class="border-b border-rule-soft bg-surface px-5 py-6 md:rounded-2xl md:border md:border-rule md:p-8">
           <div class="flex items-start gap-4 md:gap-7">
-            <div class="ph h-[88px] w-[88px] shrink-0 rounded-2xl md:h-[140px] md:w-[140px]"></div>
+            <FotoUsuario
+              :url="prestador.foto_url"
+              :nome="prestador.nome"
+              tamanho="h-[88px] w-[88px] text-3xl md:h-[140px] md:w-[140px] md:text-5xl" />
             <div class="min-w-0 flex-1">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <h1 class="mb-1 text-[22px] font-semibold tracking-[-0.01em] md:text-[30px] md:tracking-[-0.02em]">
-                    {{ prestador.nome }}
-                  </h1>
-                  <div class="text-[13px] text-muted md:text-sm">
-                    {{ prestador.cidade }}<span class="hidden md:inline"> · atende há {{ prestador.atendeHa }}</span>
-                  </div>
-                </div>
-                <div class="hidden gap-2 md:flex">
-                  <button aria-label="Compartilhar" class="flex h-9 w-9 items-center justify-center rounded-lg border border-rule bg-transparent">
-                    <i class="fa fa-share-alt"></i>
-                  </button>
-                  <button aria-label="Salvar" class="flex h-9 w-9 items-center justify-center rounded-lg border border-rule bg-transparent">
-                    <i class="fa fa-heart-o"></i>
-                  </button>
-                </div>
+              <h1 class="mb-1 text-[22px] font-semibold tracking-[-0.01em] md:text-[30px] md:tracking-[-0.02em]">
+                {{ prestador.nome }}
+              </h1>
+              <div class="text-[13px] text-muted md:text-sm">
+                <span v-if="cidade">{{ cidade }} · </span>no Mitra há {{ tempoDesde(prestador.prestador_desde) }}
               </div>
 
               <div class="mt-4 hidden items-center gap-6 border-y border-rule-soft py-4 md:flex">
                 <div>
-                  <div class="flex items-center gap-1.5">
-                    <StarRating :value="prestador.nota" size="md" />
+                  <div v-if="temNota" class="flex items-center gap-1.5">
+                    <StarRating :value="prestador.nota_media!" size="md" />
                     <span class="text-base font-semibold">
-                      {{ prestador.nota.toFixed(1).replace('.', ',') }}
+                      {{ prestador.nota_media!.toFixed(1).replace('.', ',') }}
                     </span>
                   </div>
-                  <div class="mono-sm">{{ prestador.avaliacoes }} avaliações</div>
+                  <div v-else class="text-base font-semibold">—</div>
+                  <div class="mono-sm">{{ prestador.qtd_avaliacoes }} avaliações</div>
                 </div>
                 <span class="h-8 w-px bg-rule-soft"></span>
                 <div>
-                  <div class="num text-[22px] font-semibold">{{ prestador.servicosConcluidos }}</div>
+                  <div class="num text-[22px] font-semibold">{{ prestador.servicos_concluidos }}</div>
                   <div class="mono-sm">Serviços concluídos</div>
-                </div>
-                <span class="h-8 w-px bg-rule-soft"></span>
-                <div>
-                  <div class="num text-[22px] font-semibold">{{ prestador.respostaMedia }}</div>
-                  <div class="mono-sm">Resposta média</div>
                 </div>
               </div>
 
-              <div class="mt-2 flex items-center gap-1.5 md:hidden">
-                <StarRating :value="prestador.nota" size="md" />
-                <span class="text-[13px] font-semibold">
-                  {{ prestador.nota.toFixed(1).replace('.', ',') }}
-                </span>
-                <span class="text-xs text-muted">· {{ prestador.avaliacoes }} avaliações</span>
+              <div class="mt-2 text-xs text-muted md:hidden">
+                {{ temNota ? `${prestador.nota_media!.toFixed(1).replace('.', ',')} · ` : '' }}{{ prestador.qtd_avaliacoes }} avaliações
               </div>
 
               <div class="mt-3.5 flex flex-wrap gap-1.5">
-                <CategoryChip v-for="c in prestador.categorias" :key="c">{{ c }}</CategoryChip>
-                <CategoryChip v-if="prestador.cnpj" tone="gold">CNPJ validado ✓</CategoryChip>
+                <CategoryChip v-for="s in prestador.servicos" :key="s.idservico">{{ s.nome }}</CategoryChip>
+                <CategoryChip v-if="prestador.cnpj_validado" tone="gold">CNPJ validado ✓</CategoryChip>
               </div>
             </div>
           </div>
@@ -158,76 +157,37 @@ function iniciarContato() {
           <template v-if="aba === 'sobre'">
             <section>
               <div class="mono mb-2">Apresentação</div>
-              <p class="max-w-[60ch] text-[14px] leading-[1.6] text-ink-soft md:text-[15px]">
+              <p v-if="prestador.bio" class="max-w-[60ch] whitespace-pre-line text-[14px] leading-[1.6] text-ink-soft md:text-[15px]">
                 {{ prestador.bio }}
               </p>
+              <p v-else class="text-sm text-muted">Este prestador ainda não escreveu uma apresentação.</p>
+            </section>
+
+            <section class="md:hidden">
+              <div class="mono mb-2">Atendimento</div>
+              <ul class="space-y-2 text-[13px]">
+                <li class="flex justify-between"><span class="text-muted">Preço</span><span>{{ formatarFaixaPreco(prestador.preco_min, prestador.preco_max) }}</span></li>
+                <li v-if="prestador.disponibilidade" class="flex justify-between"><span class="text-muted">Disponibilidade</span><span>{{ prestador.disponibilidade }}</span></li>
+                <li class="flex justify-between"><span class="text-muted">Última atividade</span><span>{{ atividadeRelativa(prestador.ultimo_acesso_em) }}</span></li>
+              </ul>
             </section>
 
             <section>
-              <div class="mb-3 flex items-baseline justify-between">
-                <div class="mono">Portfólio · {{ prestador.portfolioCount }} imagens</div>
-                <button class="text-[13px] text-ink-soft underline underline-offset-[3px]" @click="aba = 'portfolio'">
-                  Ver galeria
-                </button>
-              </div>
-              <div class="grid grid-cols-3 gap-1.5 md:grid-cols-4 md:gap-2">
-                <div v-for="i in 5" :key="i" class="ph aspect-square rounded-lg md:rounded-xl"></div>
-                <div class="relative aspect-square overflow-hidden rounded-lg md:rounded-xl">
-                  <div class="ph absolute inset-0"></div>
-                  <div class="absolute inset-0 flex items-center justify-center bg-black/40 text-base font-semibold text-white">
-                    +{{ prestador.portfolioCount - 5 }}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <div class="mb-3 flex items-baseline justify-between">
-                <div class="mono">Últimas avaliações</div>
-                <button class="text-[13px] text-ink-soft underline underline-offset-[3px]" @click="aba = 'avaliacoes'">
-                  Ver todas
-                </button>
-              </div>
-              <div class="grid gap-3 md:grid-cols-2">
-                <article v-for="(a, i) in avaliacoes" :key="i" class="rounded-xl border border-rule bg-surface p-4 md:p-5">
-                  <div class="mb-1.5 flex items-baseline justify-between">
-                    <div class="text-[13px] font-semibold md:text-sm">{{ a.autor }}</div>
-                    <StarRating :value="a.nota" />
-                  </div>
-                  <p class="text-[13px] leading-[1.55] text-ink-soft md:text-sm">{{ a.texto }}</p>
-                  <div class="mt-2.5 text-[11px] text-muted">{{ a.quando }}</div>
-                  <div v-if="a.resposta" class="mt-3 border-t border-dashed border-rule-soft pt-3 text-[13px] text-ink-soft">
-                    <div class="mono-sm mb-1">Resposta do prestador</div>
-                    {{ a.resposta }}
-                  </div>
-                </article>
-              </div>
+              <div class="mono mb-2">Últimas avaliações</div>
+              <p class="text-sm text-muted">Ainda sem avaliações.</p>
             </section>
           </template>
 
+          <!-- Galeria: ligada à API no passo do portfólio -->
           <template v-else-if="aba === 'portfolio'">
-            <section>
-              <div class="mono mb-3">{{ prestador.portfolioCount }} imagens</div>
-              <div class="grid grid-cols-3 gap-2 md:grid-cols-4">
-                <div v-for="i in prestador.portfolioCount" :key="i" class="ph aspect-square rounded-xl"></div>
-              </div>
-            </section>
+            <p class="text-sm text-muted">Ainda sem imagens no portfólio.</p>
           </template>
 
           <template v-else>
-            <section>
-              <div class="mono mb-3">Todas as {{ prestador.avaliacoes }} avaliações</div>
-              <div class="grid gap-3 md:grid-cols-2">
-                <article v-for="(a, i) in avaliacoes" :key="i" class="rounded-xl border border-rule bg-surface p-4 md:p-5">
-                  <div class="mb-1.5 flex items-baseline justify-between">
-                    <div class="text-[13px] font-semibold md:text-sm">{{ a.autor }}</div>
-                    <StarRating :value="a.nota" />
-                  </div>
-                  <p class="text-[13px] leading-[1.55] text-ink-soft md:text-sm">{{ a.texto }}</p>
-                  <div class="mt-2.5 text-[11px] text-muted">{{ a.quando }}</div>
-                </article>
-              </div>
-            </section>
+            <p class="text-sm text-muted">
+              Ainda sem avaliações. Elas aparecem aqui depois que cliente e prestador
+              confirmam a conclusão de um serviço.
+            </p>
           </template>
         </div>
       </div>
@@ -246,10 +206,11 @@ function iniciarContato() {
         <div class="my-4 h-px bg-rule-soft"></div>
 
         <ul class="space-y-2.5 text-[13px]">
-          <li class="flex justify-between"><span class="text-muted">Cidade</span><span>{{ prestador.cidade }}</span></li>
-          <li class="flex justify-between"><span class="text-muted">Resposta média</span><span>{{ prestador.respostaMedia }}</span></li>
-          <li class="flex justify-between"><span class="text-muted">CNPJ</span><span class="text-gold-ink">Validado ✓</span></li>
-          <li class="flex justify-between"><span class="text-muted">Última atividade</span><span>{{ prestador.ultimaAtividade }}</span></li>
+          <li v-if="cidade" class="flex justify-between"><span class="text-muted">Cidade</span><span>{{ cidade }}</span></li>
+          <li class="flex justify-between gap-3"><span class="text-muted">Preço</span><span class="text-right">{{ formatarFaixaPreco(prestador.preco_min, prestador.preco_max) }}</span></li>
+          <li v-if="prestador.disponibilidade" class="flex justify-between gap-3"><span class="text-muted">Disponibilidade</span><span class="text-right">{{ prestador.disponibilidade }}</span></li>
+          <li v-if="prestador.cnpj_validado" class="flex justify-between"><span class="text-muted">CNPJ</span><span class="text-gold-ink">Validado ✓</span></li>
+          <li class="flex justify-between"><span class="text-muted">Última atividade</span><span>{{ atividadeRelativa(prestador.ultimo_acesso_em) }}</span></li>
         </ul>
 
         <div class="my-4 h-px bg-rule-soft"></div>
@@ -257,7 +218,7 @@ function iniciarContato() {
       </aside>
     </div>
 
-    <div class="fixed inset-x-0 bottom-0 border-t border-rule bg-surface px-5 py-3 md:hidden">
+    <div v-if="prestador" class="fixed inset-x-0 bottom-0 border-t border-rule bg-surface px-5 py-3 md:hidden">
       <button class="h-12 w-full rounded-lg bg-gold text-[15px] font-semibold text-ink hover:opacity-90" @click="iniciarContato">
         Iniciar contato
       </button>

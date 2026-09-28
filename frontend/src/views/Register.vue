@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
-import { contaApi } from '../api/conta'
+import { contaApi, type Papel } from '../api/conta'
 import { ErroApi } from '../api/client'
 import { useSessaoStore } from '../stores/sessao'
 import BrandMark from '../components/BrandMark.vue'
@@ -10,8 +10,6 @@ import BrandMark from '../components/BrandMark.vue'
 const router = useRouter()
 const sessao = useSessaoStore()
 
-// O papel ainda não é enviado: passa a valer com o perfil do prestador.
-type Papel = 'cliente' | 'prestador' | 'ambos'
 const papel = ref<Papel>('cliente')
 
 const nome = ref('')
@@ -44,9 +42,11 @@ async function submit() {
       aceite_termos: aceito.value,
       idcidade: idcidade.value,
       telefone: telefone.value || null,
+      papel: papel.value,
     })
     sessao.definirUsuario(usuario)
-    router.push('/')
+    // Quem vai oferecer serviços cai direto na vitrine para preenchê-la.
+    router.push(usuario.e_prestador ? { name: 'conta-prestador' } : '/')
   } catch (e) {
     error.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
   } finally {

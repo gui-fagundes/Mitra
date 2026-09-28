@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
+import { ErroApi } from '../api/client'
 import { contaApi } from '../api/conta'
+import { LIMITE_SERVICOS, prestadorApi, type Vitrine } from '../api/prestador'
+import { taxonomiaApi, type Categoria, type Servico } from '../api/taxonomia'
 import { useSessaoStore } from '../stores/sessao'
+import FormularioDadosConta from '../components/FormularioDadosConta.vue'
+import FotoUsuario from '../components/FotoUsuario.vue'
 import PublicNav from '../components/PublicNav.vue'
-import CategoryChip from '../components/CategoryChip.vue'
 
 const router = useRouter()
 const sessao = useSessaoStore()
@@ -12,21 +17,144 @@ const sessao = useSessaoStore()
 type Aba = 'contratacoes' | 'vitrine' | 'portfolio' | 'dados'
 const aba = ref<Aba>('vitrine')
 
-// KPIs mockados
-const kpis = [
-  { label: 'Reputação · 27 avaliações', valor: '★ 4,9' },
-  { label: 'Contratações em andamento', valor: '3' },
-  { label: 'Resposta média', valor: '~4h' },
-  { label: 'Serviços concluídos (total)', valor: '48' },
+const abas: Array<{ id: Aba; label: string; curto: string }> = [
+  { id: 'contratacoes', label: 'Contratações', curto: 'Contratações' },
+  { id: 'vitrine', label: 'Vitrine (perfil público)', curto: 'Vitrine' },
+  { id: 'portfolio', label: 'Portfólio', curto: 'Portfólio' },
+  { id: 'dados', label: 'Dados da conta', curto: 'Dados' },
 ]
 
-// Vitrine — form data
-const nomePublico = ref('[Seu nome]')
-const cidade = ref('Rio Grande, RS')
-const bio = ref('[Bio do prestador — 2 a 4 parágrafos descrevendo experiência, tipos de serviço e diferencial.]')
-const disponibilidade = ref('Seg a Sáb · 8h–18h')
-const precoMin = ref('R$ 80')
-const precoMax = ref('R$ 150')
+// Reputação e contratações vêm das etapas de contratação e de avaliações.
+const kpis = [
+  { label: 'Reputação', valor: '—', detalhe: 'Sem avaliações ainda' },
+  { label: 'Contratações em andamento', valor: '0' },
+  { label: 'Serviços concluídos (total)', valor: '0' },
+]
+
+const SUGESTOES_DISPONIBILIDADE = ['Seg a Sáb · 8h–18h', 'Somente à tarde', 'Sob consulta']
+
+const carregando = ref(true)
+const semVitrine = ref(false)
+const vitrine = ref<Vitrine | null>(null)
+const categorias = ref<Categoria[]>([])
+const cidades = ref<Cidade[]>([])
+
+// Formulário da vitrine (nome e cidade são da conta; o resto, da vitrine)
+const nome = ref('')
+const idcidade = ref<number | null>(null)
+const bio = ref('')
+const disponibilidade = ref('')
+const precoMin = ref<number | ''>('')
+const precoMax = ref<number | ''>('')
+const servicosSelecionados = ref<Servico[]>([])
+
+const salvando = ref(false)
+const mensagem = ref<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
+
+const idsSelecionados = computed(() => new Set(servicosSelecionados.value.map((s) => s.idservico)))
+const podeAdicionarServico = computed(() => servicosSelecionados.value.length < LIMITE_SERVICOS)
+
+function preencher() {
+  const usuario = sessao.usuario
+  nome.value = usuario?.nome ?? ''
+  idcidade.value = usuario?.cidade?.idcidade ?? null
+  bio.value = vitrine.value?.bio ?? ''
+  disponibilidade.value = vitrine.value?.disponibilidade ?? ''
+  precoMin.value = vitrine.value?.preco_min ?? ''
+  precoMax.value = vitrine.value?.preco_max ?? ''
+  servicosSelecionados.value = [...(vitrine.value?.servicos ?? [])]
+  mensagem.value = null
+}
+
+function adicionarServico(evento: Event) {
+  const campo = evento.target as HTMLSelectElement
+  const id = Number(campo.value)
+  campo.value = ''
+  const servico = categorias.value.flatMap((c) => c.servicos).find((s) => s.idservico === id)
+  if (servico && podeAdicionarServico.value && !idsSelecionados.value.has(id)) {
+    servicosSelecionados.value.push(servico)
+  }
+}
+
+function removerServico(id: number) {
+  servicosSelecionados.value = servicosSelecionados.value.filter((s) => s.idservico !== id)
+}
+
+function numeroOuNulo(valor: number | ''): number | null {
+  return valor === '' ? null : Number(valor)
+}
+
+function textoDoErro(e: unknown): string {
+  return e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
+}
+
+async function salvar() {
+  mensagem.value = null
+  const min = numeroOuNulo(precoMin.value)
+  const max = numeroOuNulo(precoMax.value)
+  if (min != null && max != null && min > max) {
+    mensagem.value = { tipo: 'erro', texto: 'O preço mínimo não pode ser maior que o máximo.' }
+    return
+  }
+
+  salvando.value = true
+  try {
+    const usuario = await contaApi.atualizar({ nome: nome.value, idcidade: idcidade.value })
+    sessao.definirUsuario(usuario)
+    vitrine.value = await prestadorApi.atualizarVitrine({
+      bio: bio.value || null,
+      disponibilidade: disponibilidade.value || null,
+      preco_min: min,
+      preco_max: max,
+      servicos: servicosSelecionados.value.map((s) => s.idservico),
+    })
+    preencher()
+    mensagem.value = { tipo: 'ok', texto: 'Vitrine salva.' }
+  } catch (e) {
+    mensagem.value = { tipo: 'erro', texto: textoDoErro(e) }
+  } finally {
+    salvando.value = false
+  }
+}
+
+const ativando = ref(false)
+
+async function ativarVitrine() {
+  ativando.value = true
+  try {
+    vitrine.value = await prestadorApi.criarVitrine()
+    semVitrine.value = false
+    sessao.definirUsuario(await contaApi.obter())
+    preencher()
+  } catch (e) {
+    mensagem.value = { tipo: 'erro', texto: textoDoErro(e) }
+  } finally {
+    ativando.value = false
+  }
+}
+
+onMounted(async () => {
+  try {
+    const [usuario, listaCategorias, listaCidades] = await Promise.all([
+      contaApi.obter(),
+      taxonomiaApi.listarCategorias(),
+      cidadeApi.listar(),
+    ])
+    sessao.definirUsuario(usuario)
+    categorias.value = listaCategorias
+    cidades.value = listaCidades
+    if (usuario.e_prestador) {
+      vitrine.value = await prestadorApi.obterVitrine()
+    } else {
+      semVitrine.value = true
+    }
+    preencher()
+  } catch (e) {
+    mensagem.value = { tipo: 'erro', texto: textoDoErro(e) }
+  } finally {
+    carregando.value = false
+  }
+})
 
 async function sair() {
   try {
@@ -43,42 +171,46 @@ async function sair() {
     <div class="hidden md:block"><PublicNav /></div>
 
     <div class="flex items-center justify-between border-b border-rule-soft bg-surface px-5 py-3.5 md:hidden">
-      <div class="text-[15px] font-semibold">Mitra</div>
+      <router-link to="/" class="text-[15px] font-semibold">Mitra</router-link>
       <div class="flex items-center gap-3">
-        <router-link to="/mensagens" aria-label="Mensagens" class="relative">
+        <router-link to="/mensagens" aria-label="Mensagens">
           <i class="fa fa-envelope-o text-lg"></i>
-          <span class="absolute -top-1 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-[10px] font-semibold text-ink">2</span>
         </router-link>
         <button class="text-[13px] text-ink-soft" @click="sair">Sair</button>
       </div>
     </div>
 
     <!-- Chip "área do prestador" no desktop -->
-    <div class="hidden items-center gap-3 border-b border-rule-soft bg-surface px-16 py-3 md:flex">
+    <div class="hidden items-center justify-between gap-3 border-b border-rule-soft bg-surface px-16 py-3 md:flex">
       <span class="mono-sm rounded-full bg-surface-2 px-2.5 py-1 text-ink-soft">
         Área do prestador
       </span>
+      <router-link
+        v-if="vitrine && sessao.usuario"
+        :to="{ name: 'prestador', params: { id: sessao.usuario.idusuario } }"
+        class="text-[13px] text-ink-soft underline underline-offset-[3px]">
+        Ver meu perfil público
+      </router-link>
     </div>
 
     <!-- Header prestador (mobile) -->
     <div class="flex items-center gap-3.5 border-b border-rule-soft bg-surface px-5 py-4 md:hidden">
-      <div class="ph h-14 w-14 shrink-0 rounded-xl"></div>
+      <FotoUsuario
+        :url="sessao.usuario?.foto_url"
+        :nome="sessao.usuario?.nome"
+        tamanho="h-14 w-14 text-lg" />
       <div class="min-w-0 flex-1">
-        <div class="text-[15px] font-semibold">[Seu nome]</div>
-        <div class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
-          <span class="text-gold">★</span> 4,9 · 27 avaliações
-        </div>
+        <div class="text-[15px] font-semibold">{{ sessao.usuario?.nome }}</div>
+        <div class="mt-0.5 text-xs text-muted">Sem avaliações ainda</div>
       </div>
     </div>
 
     <!-- KPIs (desktop) -->
-    <div class="hidden grid-cols-4 gap-3.5 px-16 pt-6 md:grid">
+    <div class="hidden grid-cols-3 gap-3.5 px-16 pt-6 md:grid">
       <div v-for="k in kpis" :key="k.label" class="rounded-xl border border-rule bg-surface p-4">
-        <div class="num flex items-center gap-1.5 text-[22px] font-semibold">
-          <span v-if="k.valor.startsWith('★')" class="text-gold">★</span>
-          {{ k.valor.replace('★ ', '') }}
-        </div>
+        <div class="num text-[22px] font-semibold">{{ k.valor }}</div>
         <div class="mono-sm mt-0.5">{{ k.label }}</div>
+        <div v-if="k.detalhe" class="mt-0.5 text-[11px] text-muted">{{ k.detalhe }}</div>
       </div>
     </div>
 
@@ -88,28 +220,20 @@ async function sair() {
         <div class="mono-sm mb-2 px-3.5">Sua área</div>
         <nav class="flex flex-col gap-0.5">
           <button
-            v-for="item in [
-              { id: 'contratacoes', label: 'Contratações', badge: '3' },
-              { id: 'vitrine', label: 'Vitrine (perfil público)' },
-              { id: 'portfolio', label: 'Portfólio', badge: '6' },
-              { id: 'dados', label: 'Dados da conta' },
-            ]"
+            v-for="item in abas"
             :key="item.id"
-            :class="['flex items-center justify-between rounded-lg px-3.5 py-2.5 text-left text-sm',
-              aba === (item.id as Aba)
-                ? 'bg-ink font-medium text-white'
-                : 'text-ink-soft hover:bg-bg']"
-            @click="aba = item.id as Aba">
-            <span>{{ item.label }}</span>
-            <span
-              v-if="item.badge"
-              :class="['rounded-full px-1.5 py-0.5 text-[11px]',
-                aba === (item.id as Aba) ? 'bg-white/15 text-white' : 'bg-surface-2 text-ink-soft']">
-              {{ item.badge }}
-            </span>
+            :class="['rounded-lg px-3.5 py-2.5 text-left text-sm',
+              aba === item.id ? 'bg-ink font-medium text-white' : 'text-ink-soft hover:bg-bg']"
+            @click="aba = item.id">
+            {{ item.label }}
           </button>
         </nav>
-        <div class="mt-3 border-t border-rule-soft pt-3 px-3.5">
+        <div class="mt-3 flex flex-col items-start gap-2 border-t border-rule-soft px-3.5 pt-3">
+          <router-link
+            :to="{ name: 'conta-cliente' }"
+            class="text-[13px] text-ink-soft underline underline-offset-[3px]">
+            Ir para a área do cliente
+          </router-link>
           <button class="text-[13px] text-ink-soft underline" @click="sair">Sair</button>
         </div>
       </aside>
@@ -117,27 +241,22 @@ async function sair() {
       <!-- Abas mobile -->
       <div class="flex gap-1 overflow-x-auto border-b border-rule bg-surface px-5 pt-3 md:hidden">
         <button
-          v-for="a in [
-            { id: 'contratacoes', label: 'Contratações' },
-            { id: 'vitrine', label: 'Vitrine' },
-            { id: 'portfolio', label: 'Portfólio' },
-            { id: 'dados', label: 'Dados' },
-          ]"
+          v-for="a in abas"
           :key="a.id"
-          :style="aba === (a.id as Aba) ? 'bottom:-1px' : ''"
+          :style="aba === a.id ? 'bottom:-1px' : ''"
           :class="['relative -mb-px whitespace-nowrap rounded-t-lg border border-b-0 px-3 py-[7px] text-[13px]',
-            aba === (a.id as Aba)
-              ? 'border-rule bg-surface font-semibold text-ink'
-              : 'border-transparent text-muted']"
-          @click="aba = a.id as Aba">
-          {{ a.label }}
+            aba === a.id ? 'border-rule bg-surface font-semibold text-ink' : 'border-transparent text-muted']"
+          @click="aba = a.id">
+          {{ a.curto }}
         </button>
       </div>
 
       <!-- Conteúdo -->
       <main class="p-5 md:p-0">
+        <div v-if="carregando" class="py-10 text-center text-sm text-muted">Carregando…</div>
+
         <!-- VITRINE -->
-        <template v-if="aba === 'vitrine'">
+        <template v-else-if="aba === 'vitrine'">
           <div class="mb-5 flex flex-col gap-1 md:mb-6">
             <h1 class="text-xl font-semibold tracking-[-0.01em] md:text-2xl md:tracking-[-0.02em]">
               Sua vitrine pública
@@ -147,119 +266,187 @@ async function sair() {
             </div>
           </div>
 
-          <div class="mb-4 rounded-lg bg-surface-2 px-3 py-2.5 text-[12px] leading-[1.5] text-ink-soft md:hidden">
-            É isto que aparece no seu perfil público quando alguém encontra você numa busca.
-          </div>
-
-          <section class="rounded-2xl border border-rule bg-surface p-5 md:p-7">
-            <div class="grid gap-4 md:grid-cols-2">
-              <label class="col-span-full flex flex-col gap-1.5">
-                <span class="mono-sm">Nome público</span>
-                <input v-model="nomePublico" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-
-              <label class="col-span-full flex flex-col gap-1.5">
-                <span class="mono-sm">Bio (aparece no topo do perfil)</span>
-                <textarea v-model="bio" rows="4" class="rounded-lg border border-rule bg-bg px-3 py-2.5 text-sm resize-y font-sans"></textarea>
-                <div class="text-right text-[11px] text-muted">{{ bio.length }} / 400 caracteres</div>
-              </label>
-
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Cidade</span>
-                <select v-model="cidade" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm">
-                  <option>Rio Grande, RS</option>
-                </select>
-              </label>
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Disponibilidade</span>
-                <select v-model="disponibilidade" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm">
-                  <option>Seg a Sáb · 8h–18h</option>
-                  <option>Somente à tarde</option>
-                  <option>Sob consulta</option>
-                </select>
-              </label>
-
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Faixa de preço · mínimo</span>
-                <input v-model="precoMin" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Faixa de preço · máximo</span>
-                <input v-model="precoMax" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-
-              <div class="col-span-full">
-                <div class="mono-sm mb-2">
-                  Categorias que você atende
-                  <span class="ml-1 font-normal normal-case tracking-normal text-muted"> · até 3</span>
-                </div>
-                <div class="flex flex-wrap gap-1.5">
-                  <span class="rounded-full border border-ink bg-ink px-3 py-1 text-[13px] text-white">
-                    Eletroeletrônicos ×
-                  </span>
-                  <span class="rounded-full border border-ink bg-ink px-3 py-1 text-[13px] text-white">
-                    Construção / manutenção ×
-                  </span>
-                  <button class="rounded-full border border-rule bg-surface px-3 py-1 text-[13px] text-ink-soft">
-                    + adicionar categoria
-                  </button>
-                </div>
-              </div>
-            </div>
+          <!-- Quem se cadastrou só para contratar ativa a vitrine aqui -->
+          <section v-if="semVitrine" class="rounded-2xl border border-rule bg-surface p-6 md:p-8">
+            <div class="text-base font-semibold">Você ainda não oferece serviços no Mitra</div>
+            <p class="mt-1.5 max-w-[52ch] text-[13px] leading-[1.55] text-ink-soft">
+              Ative sua vitrine para aparecer nas buscas, montar seu portfólio e receber contatos.
+              Sua conta continua podendo contratar normalmente.
+            </p>
+            <button
+              :disabled="ativando"
+              class="mt-4 h-11 rounded-lg bg-gold px-5 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-60"
+              @click="ativarVitrine">
+              {{ ativando ? 'Ativando…' : 'Ativar minha vitrine' }}
+            </button>
+            <p v-if="mensagem?.tipo === 'erro'" class="mt-3 text-sm text-red-700">{{ mensagem.texto }}</p>
           </section>
 
-          <section class="mt-6 rounded-2xl border border-rule bg-surface p-5 md:p-7">
-            <div class="mb-3 flex items-baseline justify-between">
-              <div>
-                <div class="text-base font-semibold">Portfólio</div>
-                <div class="mt-0.5 text-[12px] text-muted">6 imagens · arraste para reordenar</div>
-              </div>
-              <button class="text-[13px] text-ink underline underline-offset-[3px]" @click="aba = 'portfolio'">
-                Abrir aba Portfólio
-              </button>
+          <template v-else>
+            <div class="mb-4 rounded-lg bg-surface-2 px-3 py-2.5 text-[12px] leading-[1.5] text-ink-soft md:hidden">
+              É isto que aparece no seu perfil público quando alguém encontra você numa busca.
             </div>
-            <div class="grid grid-cols-3 gap-2 md:grid-cols-6">
-              <div v-for="i in 5" :key="i" class="relative aspect-square overflow-hidden rounded-lg">
-                <div class="ph absolute inset-0"></div>
-                <button
-                  aria-label="Remover"
-                  class="absolute right-1.5 top-1.5 flex h-5.5 w-5.5 items-center justify-center rounded-full bg-black/55 text-xs text-white">
-                  ×
+
+            <section class="rounded-2xl border border-rule bg-surface p-5 md:p-7">
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="col-span-full flex flex-col gap-1.5">
+                  <span class="mono-sm">Nome público</span>
+                  <input v-model="nome" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
+                </label>
+
+                <label class="col-span-full flex flex-col gap-1.5">
+                  <span class="mono-sm">Bio (aparece no topo do perfil)</span>
+                  <textarea
+                    v-model="bio"
+                    rows="4"
+                    maxlength="400"
+                    placeholder="Conte sua experiência, os tipos de serviço que faz e o seu diferencial."
+                    class="resize-y rounded-lg border border-rule bg-bg px-3 py-2.5 font-sans text-sm"></textarea>
+                  <div class="text-right text-[11px] text-muted">{{ bio.length }} / 400 caracteres</div>
+                </label>
+
+                <label class="flex flex-col gap-1.5">
+                  <span class="mono-sm">Cidade</span>
+                  <select v-model="idcidade" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm">
+                    <option :value="null">—</option>
+                    <option v-for="c in cidades" :key="c.idcidade" :value="c.idcidade">
+                      {{ rotuloCidade(c) }}
+                    </option>
+                  </select>
+                </label>
+                <label class="flex flex-col gap-1.5">
+                  <span class="mono-sm">Disponibilidade</span>
+                  <input
+                    v-model="disponibilidade"
+                    list="sugestoes-disponibilidade"
+                    maxlength="120"
+                    placeholder="Ex.: Seg a Sáb · 8h–18h"
+                    class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
+                  <datalist id="sugestoes-disponibilidade">
+                    <option v-for="s in SUGESTOES_DISPONIBILIDADE" :key="s" :value="s" />
+                  </datalist>
+                </label>
+
+                <label class="flex flex-col gap-1.5">
+                  <span class="mono-sm">Faixa de preço · mínimo (R$)</span>
+                  <input
+                    v-model.number="precoMin"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Sob consulta"
+                    class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
+                </label>
+                <label class="flex flex-col gap-1.5">
+                  <span class="mono-sm">Faixa de preço · máximo (R$)</span>
+                  <input
+                    v-model.number="precoMax"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Sob consulta"
+                    class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
+                </label>
+
+                <div class="col-span-full">
+                  <div class="mono-sm mb-2">
+                    Serviços que você atende
+                    <span class="ml-1 font-normal normal-case tracking-normal text-muted"> · até {{ LIMITE_SERVICOS }}</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <button
+                      v-for="s in servicosSelecionados"
+                      :key="s.idservico"
+                      type="button"
+                      :aria-label="`Remover ${s.nome}`"
+                      class="rounded-full border border-ink bg-ink px-3 py-1 text-[13px] text-white"
+                      @click="removerServico(s.idservico)">
+                      {{ s.nome }} ×
+                    </button>
+                    <select
+                      v-if="podeAdicionarServico"
+                      class="rounded-full border border-rule bg-surface px-3 py-1 text-[13px] text-ink-soft"
+                      @change="adicionarServico">
+                      <option value="">+ adicionar serviço</option>
+                      <optgroup v-for="c in categorias" :key="c.idcategoria" :label="c.nome">
+                        <option
+                          v-for="s in c.servicos"
+                          :key="s.idservico"
+                          :value="s.idservico"
+                          :disabled="idsSelecionados.has(s.idservico)">
+                          {{ s.nome }}
+                        </option>
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div v-if="!servicosSelecionados.length" class="mt-1.5 text-[12px] text-muted">
+                    Sem ao menos um serviço, sua vitrine não aparece nas buscas.
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Portfólio: ligado à API no passo do portfólio -->
+            <section class="mt-6 rounded-2xl border border-rule bg-surface p-5 md:p-7">
+              <div class="mb-3 flex items-baseline justify-between">
+                <div>
+                  <div class="text-base font-semibold">Portfólio</div>
+                  <div class="mt-0.5 text-[12px] text-muted">6 imagens · arraste para reordenar</div>
+                </div>
+                <button class="text-[13px] text-ink underline underline-offset-[3px]" @click="aba = 'portfolio'">
+                  Abrir aba Portfólio
                 </button>
               </div>
-              <button class="flex aspect-square flex-col items-center justify-center rounded-lg border-2 border-dashed border-rule bg-bg text-[13px] font-semibold text-muted">
-                <i class="fa fa-plus mb-1"></i>
-                Adicionar
-              </button>
-            </div>
-          </section>
-
-          <section class="mt-6 flex items-center gap-4 rounded-2xl border border-rule bg-surface p-5 md:p-6">
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gold-soft text-2xl font-semibold text-gold-ink">
-              <i class="fa fa-check"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="text-[15px] font-semibold">Selo CNPJ validado · ativo</div>
-              <div class="mt-0.5 text-[13px] text-muted">
-                CNPJ 12.***.***/0001-45 · aparece como badge dourado no seu perfil público.
+              <div class="grid grid-cols-3 gap-2 md:grid-cols-6">
+                <div v-for="i in 5" :key="i" class="relative aspect-square overflow-hidden rounded-lg">
+                  <div class="ph absolute inset-0"></div>
+                </div>
+                <button class="flex aspect-square flex-col items-center justify-center rounded-lg border-2 border-dashed border-rule bg-bg text-[13px] font-semibold text-muted">
+                  <i class="fa fa-plus mb-1"></i>
+                  Adicionar
+                </button>
               </div>
-            </div>
-            <a href="#" class="hidden rounded-lg border border-rule px-3.5 py-2 text-[13px] text-ink-soft md:inline-block">
-              Trocar CNPJ
-            </a>
-          </section>
+            </section>
 
-          <div class="mt-6 flex justify-end gap-2.5">
-            <button class="h-11 rounded-lg border border-rule px-5 text-sm text-ink-soft">
-              Descartar alterações
-            </button>
-            <button class="h-11 rounded-lg bg-gold px-6 text-sm font-semibold text-ink hover:opacity-90">
-              Salvar alterações
-            </button>
-          </div>
+            <section
+              v-if="vitrine?.cnpj_validado"
+              class="mt-6 flex items-center gap-4 rounded-2xl border border-rule bg-surface p-5 md:p-6">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gold-soft text-2xl font-semibold text-gold-ink">
+                <i class="fa fa-check"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="text-[15px] font-semibold">Selo CNPJ validado · ativo</div>
+                <div class="mt-0.5 text-[13px] text-muted">
+                  Aparece como badge dourado no seu perfil público.
+                </div>
+              </div>
+            </section>
+
+            <div class="mt-6 flex flex-col items-end gap-2">
+              <div class="flex gap-2.5">
+                <button
+                  type="button"
+                  class="h-11 rounded-lg border border-rule px-5 text-sm text-ink-soft"
+                  @click="preencher">
+                  Descartar alterações
+                </button>
+                <button
+                  :disabled="salvando"
+                  class="h-11 rounded-lg bg-gold px-6 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-60"
+                  @click="salvar">
+                  {{ salvando ? 'Salvando…' : 'Salvar alterações' }}
+                </button>
+              </div>
+              <span
+                v-if="mensagem"
+                :class="['text-[13px]', mensagem.tipo === 'ok' ? 'text-good' : 'text-red-700']">
+                {{ mensagem.texto }}
+              </span>
+            </div>
+          </template>
         </template>
 
-        <!-- Outras abas: placeholders — a serem detalhadas com dados reais -->
+        <!-- Contratações: ligadas à API na etapa de contratação -->
         <template v-else-if="aba === 'contratacoes'">
           <div class="mb-5">
             <h1 class="text-xl font-semibold md:text-2xl">Contratações recebidas</h1>
@@ -276,6 +463,7 @@ async function sair() {
           </div>
         </template>
 
+        <!-- Portfólio: ligado à API no passo do portfólio -->
         <template v-else-if="aba === 'portfolio'">
           <div class="mb-5">
             <h1 class="text-xl font-semibold md:text-2xl">Portfólio</h1>
@@ -295,39 +483,10 @@ async function sair() {
           <div class="mb-5">
             <h1 class="text-xl font-semibold md:text-2xl">Dados da conta</h1>
             <div class="mt-0.5 text-[13px] text-muted">
-              Informações privadas de identificação e CNPJ.
+              Informações privadas de identificação.
             </div>
           </div>
-
-          <div class="rounded-2xl border border-rule bg-surface p-6">
-            <div class="grid gap-4 md:grid-cols-2">
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Nome</span>
-                <input :value="sessao.usuario?.nome ?? '[Seu nome]'" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">E-mail</span>
-                <input :value="sessao.usuario?.email ?? 'voce@exemplo.com'" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">CNPJ</span>
-                <input value="12.345.678/0001-45" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-              <label class="flex flex-col gap-1.5">
-                <span class="mono-sm">Telefone</span>
-                <input value="(53) 99999-9999" class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
-              </label>
-            </div>
-
-            <div class="mt-5 flex flex-col items-start justify-between gap-3 border-t border-dashed border-rule-soft pt-4 md:flex-row md:items-center">
-              <a href="#" class="text-[13px] text-ink-soft underline">
-                Exportar meus dados · LGPD
-              </a>
-              <button class="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white">
-                Salvar alterações
-              </button>
-            </div>
-          </div>
+          <FormularioDadosConta />
         </template>
       </main>
     </div>

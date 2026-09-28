@@ -11,6 +11,8 @@ export interface Usuario {
   aceite_termos_em: string | null
   notificar_email: boolean
   busca_somente_cnpj: boolean
+  /** Tem vitrine de prestador. Todo usuário pode contratar. */
+  e_prestador: boolean
   ativo: boolean
   criado_em: string
 }
@@ -22,9 +24,13 @@ export interface CadastroEntrada {
   aceite_termos: boolean
   idcidade?: number | null
   telefone?: string | null
+  /** "prestador" e "ambos" já criam a vitrine (vazia). Padrão: "cliente". */
+  papel?: Papel
 }
 
-/** Campos ausentes não mudam; `null` limpa cidade, telefone e foto. */
+export type Papel = 'cliente' | 'prestador' | 'ambos'
+
+/** Campos ausentes não mudam; `null` limpa cidade e telefone. A foto muda por upload. */
 export interface ContaAtualizacao {
   nome?: string
   idcidade?: number | null

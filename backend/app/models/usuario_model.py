@@ -32,6 +32,17 @@ class Usuario(Base, SerializavelMixin):
     criado_em = Column(DateTime, nullable=False, default=agora)
 
     cidade = relationship("Cidade", lazy="joined")
+    prestador_perfil = relationship(
+        "PrestadorPerfil",
+        back_populates="usuario",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    @property
+    def e_prestador(self) -> bool:
+        return self.prestador_perfil is not None
 
     def __repr__(self):
         return f"<Usuario(idusuario={self.idusuario}, email='{self.email}')>"

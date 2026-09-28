@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
@@ -13,6 +14,8 @@ class UsuarioCriacao(BaseModel):
     telefone: str | None = Field(default=None, max_length=32)
     # RF-DP-01: obrigatório e precisa ser true.
     aceite_termos: bool
+    # Todo usuário pode contratar; "prestador" e "ambos" já criam a vitrine (vazia).
+    papel: Literal["cliente", "prestador", "ambos"] = "cliente"
 
     @field_validator("aceite_termos")
     @classmethod
@@ -68,6 +71,7 @@ class UsuarioResposta(BaseModel):
     aceite_termos_em: datetime | None
     notificar_email: bool
     busca_somente_cnpj: bool
+    e_prestador: bool
     ativo: bool
     criado_em: datetime
 

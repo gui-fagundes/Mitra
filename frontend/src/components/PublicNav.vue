@@ -66,14 +66,17 @@ const sessao = useSessaoStore()
           <i class="fa fa-envelope-o mr-1"></i>
           <span class="hidden md:inline">Mensagens</span>
         </router-link>
-        <div class="flex items-center gap-2 rounded-full border border-rule px-3 py-1.5">
+        <router-link
+          :to="{ name: sessao.usuario?.e_prestador ? 'conta-prestador' : 'conta-cliente' }"
+          class="flex items-center gap-2 rounded-full border border-rule px-3 py-1.5 hover:bg-bg"
+        >
           <FotoUsuario
             :url="sessao.usuario?.foto_url"
             :nome="sessao.usuario?.nome"
             tamanho="h-6 w-6 text-[11px]"
           />
           <span class="hidden text-sm md:inline">{{ sessao.usuario?.nome ?? 'Você' }}</span>
-        </div>
+        </router-link>
       </template>
     </div>
   </header>

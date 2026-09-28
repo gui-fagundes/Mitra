@@ -1,6 +1,7 @@
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.models.prestador_perfil_model import PrestadorPerfil
 from app.models.usuario_model import Usuario
 from app.services import cidade_services
 from app.utils import arquivo_utils
@@ -38,6 +39,9 @@ def criar_usuario(payload: dict, db: Session) -> Usuario:
         # O schema só deixa chegar aqui com aceite_termos=true.
         aceite_termos_em=agora(),
     )
+    if payload.get("papel", "cliente") != "cliente":
+        # Vitrine vazia na mesma transação; o prestador preenche depois.
+        usuario.prestador_perfil = PrestadorPerfil()
 
     db.add(usuario)
     db.commit()
