@@ -1,15 +1,18 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.config.dependencies import obter_sessao, obter_usuario_logado
 from app.models.usuario_model import Usuario
 from app.schemas.usuario_schema import (
     Credenciais,
+    EsqueciSenhaEntrada,
+    RedefinirSenhaEntrada,
     UsuarioAtualizacao,
     UsuarioCriacao,
     UsuarioResposta,
 )
 from app.services import conta_services
+from app.utils import email_utils
 from app.utils.cookie_utils import apagar_cookie_sessao, gravar_cookie_sessao
 
 rotas_conta = APIRouter(prefix="/conta", tags=["Conta"])
@@ -46,3 +49,22 @@ def atualizar_conta(
     db: Session = Depends(obter_sessao),
 ):
     return conta_services.atualizar(usuario_logado, corpo.model_dump(exclude_unset=True), db)
+
+
+@rotas_conta.post("/senha/esqueci", status_code=204)
+def esqueci_senha(
+    corpo: EsqueciSenhaEntrada,
+    tarefas: BackgroundTasks,
+    db: Session = Depends(obter_sessao),
+):
+    """Sempre 204, exista ou não conta com o e-mail (não revela quem é cadastrado)."""
+    resultado = conta_services.solicitar_redefinicao_senha(corpo.model_dump(), db)
+    if resultado:
+        usuario, link = resultado
+        assunto, texto = conta_services.montar_email_redefinicao(usuario, link)
+        tarefas.add_task(email_utils.enviar_email, usuario.email, assunto, texto)
+
+
+@rotas_conta.post("/senha/redefinir", status_code=204)
+def redefinir_senha(corpo: RedefinirSenhaEntrada, db: Session = Depends(obter_sessao)):
+    conta_services.redefinir_senha(corpo.model_dump(), db)

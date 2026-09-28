@@ -45,6 +45,15 @@ class Credenciais(BaseModel):
     senha: str
 
 
+class EsqueciSenhaEntrada(BaseModel):
+    email: EmailStr
+
+
+class RedefinirSenhaEntrada(BaseModel):
+    token: str
+    nova_senha: str = Field(min_length=8, max_length=128)
+
+
 class UsuarioResposta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

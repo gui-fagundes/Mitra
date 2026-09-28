@@ -99,13 +99,12 @@ async function submit() {
           <label class="block">
             <div class="mb-1.5 flex items-center justify-between">
               <span class="text-[13px] font-medium text-ink-soft">Senha</span>
-              <a
-                href="#"
+              <router-link
+                to="/esqueci-senha"
                 class="text-xs text-ink-soft underline underline-offset-[3px]"
-                @click.prevent
               >
                 Esqueci minha senha
-              </a>
+              </router-link>
             </div>
             <input
               v-model="senha"

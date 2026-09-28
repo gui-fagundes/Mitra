@@ -47,4 +47,13 @@ export const contaApi = {
 
   atualizar: (dados: ContaAtualizacao) =>
     api.patch<Usuario>('/conta', dados).then((r) => r.data),
+
+  /** Sempre resolve (204), exista ou não conta com o e-mail. */
+  esqueciSenha: (email: string) =>
+    api.post<void>('/conta/senha/esqueci', { email }).then(() => undefined),
+
+  redefinirSenha: (token: string, novaSenha: string) =>
+    api
+      .post<void>('/conta/senha/redefinir', { token, nova_senha: novaSenha })
+      .then(() => undefined),
 }

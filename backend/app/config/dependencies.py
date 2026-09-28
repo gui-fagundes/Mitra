@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.config.constants import COOKIE_TOKEN_ACESSO, MINUTOS_ENTRE_REGISTROS_ACESSO
 from app.config.database import SessaoLocal
 from app.utils.data_utils import agora
-from app.utils.seguranca_utils import decodificar_token
+from app.utils.seguranca_utils import decodificar_token, e_token_de_sessao
 
 
 def obter_sessao():
@@ -38,14 +38,10 @@ def obter_usuario_logado(
     except JWTError as e:
         raise nao_autenticado from e
 
-    if not payload:
+    if not e_token_de_sessao(payload):
         raise nao_autenticado
 
-    idusuario = payload.get("sub")
-    if idusuario is None:
-        raise nao_autenticado
-
-    usuario = db.query(Usuario).filter(Usuario.idusuario == int(idusuario)).first()
+    usuario = db.query(Usuario).filter(Usuario.idusuario == int(payload["sub"])).first()
     if not usuario or not usuario.ativo:
         raise nao_autenticado
 

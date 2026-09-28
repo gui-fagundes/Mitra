@@ -23,6 +23,18 @@ const router = createRouter({
     // Auth
     { path: '/login', name: 'login', component: Login, meta: { guestOnly: true } },
     { path: '/register', name: 'register', component: Register, meta: { guestOnly: true } },
+    {
+      path: '/esqueci-senha',
+      name: 'esqueci-senha',
+      component: () => import('./views/EsqueciSenha.vue'),
+      meta: { guestOnly: true },
+    },
+    {
+      // Sem guestOnly: o link do e-mail precisa abrir mesmo com alguém logado no navegador.
+      path: '/redefinir-senha',
+      name: 'redefinir-senha',
+      component: () => import('./views/RedefinirSenha.vue'),
+    },
 
     // Área logada
     {

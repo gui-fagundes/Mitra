@@ -1,17 +1,14 @@
-from datetime import timedelta
-
 from fastapi import Request
 from jose import JWTError
 
-from app.config.constants import COOKIE_TOKEN_ACESSO, MINUTOS_EXPIRACAO_TOKEN
+from app.config.constants import COOKIE_TOKEN_ACESSO
 from app.utils.cookie_utils import gravar_cookie_sessao
-from app.utils.data_utils import agora
-from app.utils.seguranca_utils import criar_token, decodificar_token
+from app.utils.seguranca_utils import criar_token_sessao, decodificar_token, e_token_de_sessao
 
 
 async def renovar_sessao(requisicao: Request, proximo):
-    """Se a requisição chega com um token válido, reemite o cookie com exp
-    renovado. Assim o usuário só é deslogado após X minutos de inatividade.
+    """Se a requisição chega com um token de sessão válido, reemite o cookie com
+    exp renovado. Assim o usuário só é deslogado após X minutos de inatividade.
 
     Respeita rotas que gravaram o cookie explicitamente (entrar/sair): se a
     resposta já tem um Set-Cookie para o token, não sobrescreve.
@@ -34,11 +31,9 @@ async def renovar_sessao(requisicao: Request, proximo):
     except JWTError:
         return resposta
 
-    if not payload or "sub" not in payload:
+    if not e_token_de_sessao(payload):
         return resposta
 
-    nova_expiracao = agora() + timedelta(minutes=MINUTOS_EXPIRACAO_TOKEN)
-    novo_token = criar_token({"sub": payload["sub"], "exp": int(nova_expiracao.timestamp())})
-    gravar_cookie_sessao(resposta, novo_token)
+    gravar_cookie_sessao(resposta, criar_token_sessao(payload["sub"]))
 
     return resposta

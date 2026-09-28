@@ -363,16 +363,12 @@ async function sair() {
                 type="checkbox"
                 @change="salvarPreferencia({ notificar_email: notificarEmail })" />
             </label>
-            <label class="flex items-center justify-between border-b border-rule-soft py-3">
+            <label class="flex items-center justify-between py-3">
               <span class="text-sm">Somente prestadores com CNPJ validado</span>
               <input
                 v-model="buscaSomenteCnpj"
                 type="checkbox"
                 @change="salvarPreferencia({ busca_somente_cnpj: buscaSomenteCnpj })" />
-            </label>
-            <label class="flex items-center justify-between py-3">
-              <span class="text-sm">Manter histórico de buscas</span>
-              <input type="checkbox" checked />
             </label>
           </div>
         </template>
