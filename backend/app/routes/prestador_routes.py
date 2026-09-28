@@ -1,15 +1,18 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.config.dependencies import obter_sessao, obter_usuario_logado
 from app.models.usuario_model import Usuario
 from app.schemas.prestador_schema import (
+    ItemPortfolioResposta,
+    LegendaPortfolioAtualizacao,
+    OrdemPortfolioEntrada,
     PrestadorPublicoResposta,
     VitrineAtualizacao,
     VitrineCriacao,
     VitrineResposta,
 )
-from app.services import prestador_services
+from app.services import portfolio_services, prestador_services
 
 # A vitrine do próprio usuário mora sob /conta, como os demais recursos do logado.
 rotas_vitrine = APIRouter(prefix="/conta/vitrine", tags=["Vitrine do prestador"])
@@ -39,6 +42,52 @@ def atualizar_vitrine(
     return prestador_services.atualizar_vitrine(
         usuario_logado, corpo.model_dump(exclude_unset=True), db
     )
+
+
+# --- Portfólio (RF-ID-04) ------------------------------------------------------
+
+
+@rotas_vitrine.post("/portfolio", response_model=ItemPortfolioResposta, status_code=201)
+def adicionar_ao_portfolio(
+    arquivo: UploadFile = File(description="Imagem JPG, PNG ou WebP de até 5 MB"),
+    legenda: str | None = Form(default=None, max_length=255),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    return portfolio_services.adicionar(usuario_logado, arquivo, legenda, db)
+
+
+@rotas_vitrine.put("/portfolio/ordem", response_model=list[ItemPortfolioResposta])
+def reordenar_portfolio(
+    corpo: OrdemPortfolioEntrada,
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    return portfolio_services.reordenar(usuario_logado, corpo.ids, db)
+
+
+@rotas_vitrine.patch("/portfolio/{idprestadorportfolio}", response_model=ItemPortfolioResposta)
+def editar_legenda_do_portfolio(
+    idprestadorportfolio: int,
+    corpo: LegendaPortfolioAtualizacao,
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    return portfolio_services.editar_legenda(
+        usuario_logado, idprestadorportfolio, corpo.model_dump(), db
+    )
+
+
+@rotas_vitrine.delete("/portfolio/{idprestadorportfolio}", status_code=204)
+def remover_do_portfolio(
+    idprestadorportfolio: int,
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    portfolio_services.remover(usuario_logado, idprestadorportfolio, db)
+
+
+# --- Perfil público -------------------------------------------------------------
 
 
 @rotas_prestador.get("/{idusuario}", response_model=PrestadorPublicoResposta)

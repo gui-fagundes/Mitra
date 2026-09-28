@@ -2,13 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
-import { ErroApi } from '../api/client'
+import { ErroApi, urlArquivo } from '../api/client'
 import { contaApi } from '../api/conta'
 import { LIMITE_SERVICOS, prestadorApi, type Vitrine } from '../api/prestador'
 import { taxonomiaApi, type Categoria, type Servico } from '../api/taxonomia'
 import { useSessaoStore } from '../stores/sessao'
 import FormularioDadosConta from '../components/FormularioDadosConta.vue'
 import FotoUsuario from '../components/FotoUsuario.vue'
+import GerenciadorPortfolio from '../components/GerenciadorPortfolio.vue'
 import PublicNav from '../components/PublicNav.vue'
 
 const router = useRouter()
@@ -51,6 +52,7 @@ const servicosSelecionados = ref<Servico[]>([])
 const salvando = ref(false)
 const mensagem = ref<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
 
+const portfolio = computed(() => vitrine.value?.portfolio ?? [])
 const idsSelecionados = computed(() => new Set(servicosSelecionados.value.map((s) => s.idservico)))
 const podeAdicionarServico = computed(() => servicosSelecionados.value.length < LIMITE_SERVICOS)
 
@@ -386,26 +388,29 @@ async function sair() {
               </div>
             </section>
 
-            <!-- Portfólio: ligado à API no passo do portfólio -->
             <section class="mt-6 rounded-2xl border border-rule bg-surface p-5 md:p-7">
               <div class="mb-3 flex items-baseline justify-between">
                 <div>
                   <div class="text-base font-semibold">Portfólio</div>
-                  <div class="mt-0.5 text-[12px] text-muted">6 imagens · arraste para reordenar</div>
+                  <div class="mt-0.5 text-[12px] text-muted">
+                    {{ portfolio.length }} {{ portfolio.length === 1 ? 'imagem' : 'imagens' }}
+                  </div>
                 </div>
                 <button class="text-[13px] text-ink underline underline-offset-[3px]" @click="aba = 'portfolio'">
-                  Abrir aba Portfólio
+                  {{ portfolio.length ? 'Gerenciar portfólio' : 'Adicionar fotos' }}
                 </button>
               </div>
-              <div class="grid grid-cols-3 gap-2 md:grid-cols-6">
-                <div v-for="i in 5" :key="i" class="relative aspect-square overflow-hidden rounded-lg">
-                  <div class="ph absolute inset-0"></div>
-                </div>
-                <button class="flex aspect-square flex-col items-center justify-center rounded-lg border-2 border-dashed border-rule bg-bg text-[13px] font-semibold text-muted">
-                  <i class="fa fa-plus mb-1"></i>
-                  Adicionar
-                </button>
+              <div v-if="portfolio.length" class="grid grid-cols-3 gap-2 md:grid-cols-6">
+                <img
+                  v-for="item in portfolio.slice(0, 6)"
+                  :key="item.idprestadorportfolio"
+                  :src="urlArquivo(item.imagem_url) ?? ''"
+                  :alt="item.legenda ?? 'Imagem do portfólio'"
+                  class="aspect-square w-full rounded-lg object-cover" />
               </div>
+              <p v-else class="text-[13px] text-muted">
+                Fotos de trabalhos feitos ajudam o cliente a decidir. Você pode enviar até 10.
+              </p>
             </section>
 
             <section
@@ -463,20 +468,17 @@ async function sair() {
           </div>
         </template>
 
-        <!-- Portfólio: ligado à API no passo do portfólio -->
         <template v-else-if="aba === 'portfolio'">
           <div class="mb-5">
             <h1 class="text-xl font-semibold md:text-2xl">Portfólio</h1>
             <div class="mt-0.5 text-[13px] text-muted">
-              Suas fotos de trabalho — arraste para reordenar.
+              Suas fotos de trabalho — arraste (ou use ◀ ▶) para reordenar.
             </div>
           </div>
-          <div class="grid grid-cols-3 gap-2 md:grid-cols-6">
-            <div v-for="i in 6" :key="i" class="ph aspect-square rounded-xl"></div>
-            <button class="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-rule bg-bg text-[13px] font-semibold text-muted">
-              <i class="fa fa-plus mb-1"></i> Adicionar
-            </button>
-          </div>
+          <p v-if="semVitrine" class="text-sm text-muted">
+            Ative sua vitrine na aba Vitrine para montar o portfólio.
+          </p>
+          <GerenciadorPortfolio v-else-if="vitrine" v-model="vitrine.portfolio" />
         </template>
 
         <template v-else>

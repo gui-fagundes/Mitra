@@ -51,6 +51,12 @@ class PrestadorPerfil(Base, SerializavelMixin):
 
     usuario = relationship("Usuario", back_populates="prestador_perfil")
     servicos = relationship("Servico", secondary="public.prestador_servico", lazy="selectin")
+    portfolio = relationship(
+        "PrestadorPortfolio",
+        order_by="PrestadorPortfolio.ordem",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     @property
     def servicos_ordenados(self) -> list:

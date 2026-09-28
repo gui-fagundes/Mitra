@@ -56,6 +56,25 @@ class VitrineAtualizacao(_CamposVitrine):
     _servicos = field_validator("servicos")(_validar_servicos)
 
 
+class ItemPortfolioResposta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    idprestadorportfolio: int
+    imagem_url: str
+    legenda: str | None
+    ordem: int
+
+
+class LegendaPortfolioAtualizacao(BaseModel):
+    legenda: str | None = Field(default=None, max_length=255)
+
+
+class OrdemPortfolioEntrada(BaseModel):
+    """Todos os ids do portfólio, na nova ordem."""
+
+    ids: list[int]
+
+
 class CategoriaResumo(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -75,6 +94,7 @@ class VitrineResposta(BaseModel):
     preco_max: float | None
     disponibilidade: str | None
     servicos: list[ServicoResposta] = Field(validation_alias="servicos_ordenados")
+    portfolio: list[ItemPortfolioResposta]
     cnpj_validado: bool
     criado_em: datetime
     atualizado_em: datetime
@@ -96,6 +116,7 @@ class PrestadorPublicoResposta(BaseModel):
     ultimo_acesso_em: datetime | None
     categorias: list[CategoriaResumo]
     servicos: list[ServicoResposta]
+    portfolio: list[ItemPortfolioResposta]
     # Preenchidos pelas etapas de contratação e de avaliações.
     servicos_concluidos: int = 0
     nota_media: float | None = None

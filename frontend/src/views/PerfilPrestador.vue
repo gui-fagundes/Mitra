@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { rotuloCidade } from '../api/cidade'
-import { ErroApi } from '../api/client'
+import { ErroApi, urlArquivo } from '../api/client'
 import { prestadorApi, type PrestadorPublico } from '../api/prestador'
 import { atividadeRelativa, formatarFaixaPreco, tempoDesde } from '../utils/formatacao'
 import CategoryChip from '../components/CategoryChip.vue'
@@ -64,7 +64,7 @@ function iniciarContato() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-bg pb-24 md:pb-0">
+  <div class="min-h-screen bg-bg pb-24 lg:pb-0">
     <div class="hidden md:block">
       <PublicNav />
       <div class="px-16 py-4 text-[13px] text-muted">
@@ -94,7 +94,7 @@ function iniciarContato() {
       </router-link>
     </div>
 
-    <div v-else-if="prestador" class="grid gap-8 px-0 md:grid-cols-[1fr_360px] md:gap-12 md:px-16 md:pb-10">
+    <div v-else-if="prestador" class="grid gap-8 px-0 lg:grid-cols-[1fr_360px] md:gap-12 md:px-16 md:pb-10">
       <div>
         <div class="border-b border-rule-soft bg-surface px-5 py-6 md:rounded-2xl md:border md:border-rule md:p-8">
           <div class="flex items-start gap-4 md:gap-7">
@@ -139,7 +139,7 @@ function iniciarContato() {
             </div>
           </div>
 
-          <div class="mt-4 md:hidden">
+          <div class="mt-4 lg:hidden">
             <button class="h-[50px] w-full rounded-xl bg-gold text-[15px] font-semibold text-ink hover:opacity-90" @click="iniciarContato">
               Iniciar contato
             </button>
@@ -163,7 +163,34 @@ function iniciarContato() {
               <p v-else class="text-sm text-muted">Este prestador ainda não escreveu uma apresentação.</p>
             </section>
 
-            <section class="md:hidden">
+            <section v-if="prestador.portfolio.length">
+              <div class="mb-3 flex items-baseline justify-between">
+                <div class="mono">Portfólio · {{ prestador.portfolio.length }} {{ prestador.portfolio.length === 1 ? 'imagem' : 'imagens' }}</div>
+                <button class="text-[13px] text-ink-soft underline underline-offset-[3px]" @click="aba = 'portfolio'">
+                  Ver galeria
+                </button>
+              </div>
+              <div class="grid grid-cols-3 gap-1.5 md:grid-cols-6 md:gap-2">
+                <button
+                  v-for="(item, i) in prestador.portfolio.slice(0, 6)"
+                  :key="item.idprestadorportfolio"
+                  type="button"
+                  class="relative aspect-square overflow-hidden rounded-lg md:rounded-xl"
+                  @click="aba = 'portfolio'">
+                  <img
+                    :src="urlArquivo(item.imagem_url) ?? ''"
+                    :alt="item.legenda ?? `Trabalho ${i + 1}`"
+                    class="h-full w-full object-cover" />
+                  <span
+                    v-if="i === 5 && prestador.portfolio.length > 6"
+                    class="absolute inset-0 flex items-center justify-center bg-black/40 text-base font-semibold text-white">
+                    +{{ prestador.portfolio.length - 5 }}
+                  </span>
+                </button>
+              </div>
+            </section>
+
+            <section class="lg:hidden">
               <div class="mono mb-2">Atendimento</div>
               <ul class="space-y-2 text-[13px]">
                 <li class="flex justify-between"><span class="text-muted">Preço</span><span>{{ formatarFaixaPreco(prestador.preco_min, prestador.preco_max) }}</span></li>
@@ -178,9 +205,21 @@ function iniciarContato() {
             </section>
           </template>
 
-          <!-- Galeria: ligada à API no passo do portfólio -->
           <template v-else-if="aba === 'portfolio'">
-            <p class="text-sm text-muted">Ainda sem imagens no portfólio.</p>
+            <div v-if="prestador.portfolio.length" class="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <figure v-for="(item, i) in prestador.portfolio" :key="item.idprestadorportfolio">
+                <a :href="urlArquivo(item.imagem_url) ?? '#'" target="_blank" rel="noopener">
+                  <img
+                    :src="urlArquivo(item.imagem_url) ?? ''"
+                    :alt="item.legenda ?? `Trabalho ${i + 1}`"
+                    class="aspect-square w-full rounded-xl object-cover" />
+                </a>
+                <figcaption v-if="item.legenda" class="mt-1.5 text-[12px] text-ink-soft">
+                  {{ item.legenda }}
+                </figcaption>
+              </figure>
+            </div>
+            <p v-else class="text-sm text-muted">Ainda sem imagens no portfólio.</p>
           </template>
 
           <template v-else>
@@ -192,7 +231,7 @@ function iniciarContato() {
         </div>
       </div>
 
-      <aside class="sticky top-6 hidden self-start rounded-2xl border border-rule bg-surface p-6 md:block">
+      <aside class="sticky top-6 hidden self-start rounded-2xl border border-rule bg-surface p-6 lg:block">
         <div class="mb-3">
           <div class="mono mb-2">Entrar em contato</div>
           <div class="text-[13px] leading-[1.5] text-ink-soft">
@@ -218,7 +257,7 @@ function iniciarContato() {
       </aside>
     </div>
 
-    <div v-if="prestador" class="fixed inset-x-0 bottom-0 border-t border-rule bg-surface px-5 py-3 md:hidden">
+    <div v-if="prestador" class="fixed inset-x-0 bottom-0 border-t border-rule bg-surface px-5 py-3 lg:hidden">
       <button class="h-12 w-full rounded-lg bg-gold text-[15px] font-semibold text-ink hover:opacity-90" @click="iniciarContato">
         Iniciar contato
       </button>

@@ -112,4 +112,5 @@ def obter_prestador_publico(idusuario: int, db: Session) -> dict:
         "ultimo_acesso_em": usuario.ultimo_acesso_em,
         "categorias": perfil.categorias,
         "servicos": perfil.servicos_ordenados,
+        "portfolio": perfil.portfolio,
     }
