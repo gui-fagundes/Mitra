@@ -7,7 +7,12 @@ from app.config.constants import COOKIE_TOKEN_ACESSO
 def _cadastrar(api):
     return api.post(
         "/conta/cadastro",
-        json={"nome": "Slide", "email": "slide@test.com", "senha": "senha1234"},
+        json={
+            "nome": "Slide",
+            "email": "slide@test.com",
+            "senha": "senha1234",
+            "aceite_termos": True,
+        },
     )
 
 

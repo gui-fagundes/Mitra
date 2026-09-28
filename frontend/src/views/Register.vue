@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
 import { contaApi } from '../api/conta'
 import { ErroApi } from '../api/client'
 import { useSessaoStore } from '../stores/sessao'
@@ -9,12 +10,14 @@ import BrandMark from '../components/BrandMark.vue'
 const router = useRouter()
 const sessao = useSessaoStore()
 
+// Onda 2: o papel passa a ser enviado no cadastro (cria prestador_perfil).
 type Papel = 'cliente' | 'prestador' | 'ambos'
 const papel = ref<Papel>('cliente')
 
 const nome = ref('')
 const email = ref('')
-const cidade = ref('Rio Grande, RS')
+const cidades = ref<Cidade[]>([])
+const idcidade = ref<number | null>(null)
 const telefone = ref('')
 const senha = ref('')
 const senha2 = ref('')
@@ -34,10 +37,14 @@ async function submit() {
   }
   loading.value = true
   try {
-    // Backend atual só aceita (nome, email, senha); os demais campos (papel,
-    // cidade, telefone) entrarão em iteração futura, quando a rota /conta/cadastro
-    // for expandida. Por ora, mockamos o cadastro extra apenas na UI.
-    const usuario = await contaApi.cadastrar(nome.value, email.value, senha.value)
+    const usuario = await contaApi.cadastrar({
+      nome: nome.value,
+      email: email.value,
+      senha: senha.value,
+      aceite_termos: aceito.value,
+      idcidade: idcidade.value,
+      telefone: telefone.value || null,
+    })
     sessao.definirUsuario(usuario)
     router.push('/')
   } catch (e) {
@@ -46,6 +53,16 @@ async function submit() {
     loading.value = false
   }
 }
+
+onMounted(async () => {
+  try {
+    cidades.value = await cidadeApi.listar()
+    // Piloto em uma cidade só: já vem selecionada.
+    idcidade.value = cidades.value[0]?.idcidade ?? null
+  } catch {
+    // Sem a lista, o cadastro segue sem cidade (campo opcional).
+  }
+})
 
 const papeis: Array<{ id: Papel; t: string; d: string }> = [
   { id: 'cliente', t: 'Contratar', d: 'Pesquisar, contatar e avaliar prestadores.' },
@@ -193,10 +210,12 @@ const papeis: Array<{ id: Papel; t: string; d: string }> = [
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-medium text-ink-soft">Cidade</span>
               <select
-                v-model="cidade"
+                v-model="idcidade"
                 class="h-[46px] appearance-none rounded-lg border border-rule bg-surface px-3 text-[15px] outline-none focus:border-ink"
               >
-                <option>Rio Grande, RS</option>
+                <option v-for="c in cidades" :key="c.idcidade" :value="c.idcidade">
+                  {{ rotuloCidade(c) }}
+                </option>
               </select>
             </label>
 

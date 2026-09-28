@@ -2,11 +2,20 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.usuario_model import Usuario
+from app.services import cidade_services
+from app.utils.data_utils import agora
 from app.utils.seguranca_utils import gerar_hash_senha
 
 
 def buscar_por_email(email: str, db: Session) -> Usuario | None:
     return db.query(Usuario).filter(Usuario.email == email).first()
+
+
+def _normalizar_opcional(texto: str | None) -> str | None:
+    """Espaços nas pontas saem; string vazia vira None."""
+    if texto is None:
+        return None
+    return texto.strip() or None
 
 
 def criar_usuario(payload: dict, db: Session) -> Usuario:
@@ -16,13 +25,45 @@ def criar_usuario(payload: dict, db: Session) -> Usuario:
             detail="Email já cadastrado",
         )
 
+    if payload.get("idcidade") is not None:
+        cidade_services.validar_cidade_ativa(payload["idcidade"], db)
+
     usuario = Usuario(
-        nome=payload["nome"],
+        nome=payload["nome"].strip(),
         email=payload["email"],
         senha_hash=gerar_hash_senha(payload["senha"]),
+        idcidade=payload.get("idcidade"),
+        telefone=_normalizar_opcional(payload.get("telefone")),
+        # O schema só deixa chegar aqui com aceite_termos=true.
+        aceite_termos_em=agora(),
     )
 
     db.add(usuario)
+    db.commit()
+    db.refresh(usuario)
+
+    return usuario
+
+
+def atualizar_usuario(usuario: Usuario, payload: dict, db: Session) -> Usuario:
+    """`payload` só com os campos enviados (exclude_unset)."""
+    if payload.get("idcidade") is not None:
+        cidade_services.validar_cidade_ativa(payload["idcidade"], db)
+
+    for campo in ("telefone", "foto_url"):
+        if campo in payload:
+            payload[campo] = _normalizar_opcional(payload[campo])
+    if "nome" in payload:
+        payload["nome"] = payload["nome"].strip()
+        if not payload["nome"]:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Nome não pode ficar em branco",
+            )
+
+    for campo, valor in payload.items():
+        setattr(usuario, campo, valor)
+
     db.commit()
     db.refresh(usuario)
 

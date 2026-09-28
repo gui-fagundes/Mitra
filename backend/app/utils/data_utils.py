@@ -31,7 +31,7 @@ def interpretar_mes_aaaamm(mes: str) -> tuple[int, int]:
             raise ValueError
     except (ValueError, AttributeError) as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Parâmetro 'mes' deve estar no formato AAAA-MM (ex.: 2026-07)",
         ) from e
     return ano, numero_mes

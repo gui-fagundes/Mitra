@@ -2,6 +2,9 @@ import os
 
 MINUTOS_EXPIRACAO_TOKEN = 60
 
+# Intervalo mínimo entre gravações de usuario.ultimo_acesso_em (evita escrita a cada request).
+MINUTOS_ENTRE_REGISTROS_ACESSO = 5
+
 COOKIE_TOKEN_ACESSO = "token_acesso"
 
 AMBIENTE = os.getenv("ENV", "development").lower()

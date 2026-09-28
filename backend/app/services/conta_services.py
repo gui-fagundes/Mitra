@@ -36,3 +36,7 @@ def entrar(payload: dict, db: Session) -> Usuario:
 
 def cadastrar(payload: dict, db: Session) -> Usuario:
     return usuario_services.criar_usuario(payload, db)
+
+
+def atualizar(usuario: Usuario, payload: dict, db: Session) -> Usuario:
+    return usuario_services.atualizar_usuario(usuario, payload, db)

@@ -1,12 +1,43 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+
+from app.schemas.cidade_schema import CidadeResposta
 
 
 class UsuarioCriacao(BaseModel):
     nome: str = Field(min_length=1, max_length=255)
     email: EmailStr
     senha: str = Field(min_length=8, max_length=128)
+    idcidade: int | None = None
+    telefone: str | None = Field(default=None, max_length=32)
+    # RF-DP-01: obrigatório e precisa ser true.
+    aceite_termos: bool
+
+    @field_validator("aceite_termos")
+    @classmethod
+    def exigir_aceite(cls, valor: bool) -> bool:
+        if not valor:
+            raise ValueError("É preciso aceitar os Termos de Uso e a Política de Privacidade")
+        return valor
+
+
+class UsuarioAtualizacao(BaseModel):
+    """Campos ausentes não mudam. `null` limpa os opcionais (cidade, telefone, foto)."""
+
+    nome: str | None = Field(default=None, min_length=1, max_length=255)
+    idcidade: int | None = None
+    telefone: str | None = Field(default=None, max_length=32)
+    foto_url: str | None = Field(default=None, max_length=1024)
+    notificar_email: bool | None = None
+    busca_somente_cnpj: bool | None = None
+
+    @model_validator(mode="after")
+    def proibir_nulo_nos_obrigatorios(self):
+        for campo in ("nome", "notificar_email", "busca_somente_cnpj"):
+            if campo in self.model_fields_set and getattr(self, campo) is None:
+                raise ValueError(f"'{campo}' não pode ser nulo")
+        return self
 
 
 class Credenciais(BaseModel):
@@ -20,6 +51,12 @@ class UsuarioResposta(BaseModel):
     idusuario: int
     nome: str
     email: EmailStr
+    telefone: str | None
+    foto_url: str | None
+    cidade: CidadeResposta | None
+    aceite_termos_em: datetime | None
+    notificar_email: bool
+    busca_somente_cnpj: bool
     ativo: bool
     criado_em: datetime
 
