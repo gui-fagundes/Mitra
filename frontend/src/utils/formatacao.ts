@@ -32,3 +32,15 @@ export function atividadeRelativa(dataIso: string | null, agora = new Date()): s
   const meses = Math.floor(dias / 30)
   return meses === 1 ? 'há 1 mês' : `há ${meses} meses`
 }
+
+/** "12345678000195" → "12.345.678/0001-95". Serve também para o CNPJ alfanumérico. */
+export function formatarCnpj(cnpj: string): string {
+  const c = cnpj.replace(/[^0-9A-Za-z]/g, '').toUpperCase()
+  if (c.length !== 14) return cnpj
+  return `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}`
+}
+
+/** "2026-09-28T10:00:00" → "28/09/2026". */
+export function formatarData(dataIso: string): string {
+  return new Date(dataIso).toLocaleDateString('pt-BR')
+}

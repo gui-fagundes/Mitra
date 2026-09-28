@@ -6,7 +6,9 @@ import { ErroApi, urlArquivo } from '../api/client'
 import { contaApi } from '../api/conta'
 import { LIMITE_SERVICOS, prestadorApi, type Vitrine } from '../api/prestador'
 import { taxonomiaApi, type Categoria, type Servico } from '../api/taxonomia'
+import { formatarCnpj } from '../utils/formatacao'
 import { useSessaoStore } from '../stores/sessao'
+import CartaoCnpj from '../components/CartaoCnpj.vue'
 import FormularioDadosConta from '../components/FormularioDadosConta.vue'
 import FotoUsuario from '../components/FotoUsuario.vue'
 import GerenciadorPortfolio from '../components/GerenciadorPortfolio.vue'
@@ -413,18 +415,31 @@ async function sair() {
               </p>
             </section>
 
-            <section
-              v-if="vitrine?.cnpj_validado"
-              class="mt-6 flex items-center gap-4 rounded-2xl border border-rule bg-surface p-5 md:p-6">
-              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gold-soft text-2xl font-semibold text-gold-ink">
+            <section class="mt-6 flex items-center gap-4 rounded-2xl border border-rule bg-surface p-5 md:p-6">
+              <div
+                :class="['flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl font-semibold',
+                  vitrine?.cnpj_validado ? 'bg-gold-soft text-gold-ink' : 'bg-surface-2 text-muted']">
                 <i class="fa fa-check"></i>
               </div>
               <div class="min-w-0 flex-1">
-                <div class="text-[15px] font-semibold">Selo CNPJ validado · ativo</div>
+                <div class="text-[15px] font-semibold">
+                  {{ vitrine?.cnpj_validado ? 'Selo CNPJ validado · ativo' : 'Ganhe o selo "CNPJ validado"' }}
+                </div>
                 <div class="mt-0.5 text-[13px] text-muted">
-                  Aparece como badge dourado no seu perfil público.
+                  <template v-if="vitrine?.cnpj">
+                    CNPJ {{ formatarCnpj(vitrine.cnpj) }} · aparece como badge dourado no seu perfil público.
+                  </template>
+                  <template v-else>
+                    Cadastre um CNPJ ativo na Receita e seu perfil ganha o badge dourado.
+                  </template>
                 </div>
               </div>
+              <button
+                type="button"
+                class="shrink-0 rounded-lg border border-rule px-3.5 py-2 text-[13px] text-ink-soft"
+                @click="aba = 'dados'">
+                {{ vitrine?.cnpj ? 'Gerenciar' : 'Cadastrar CNPJ' }}
+              </button>
             </section>
 
             <div class="mt-6 flex flex-col items-end gap-2">
@@ -485,10 +500,11 @@ async function sair() {
           <div class="mb-5">
             <h1 class="text-xl font-semibold md:text-2xl">Dados da conta</h1>
             <div class="mt-0.5 text-[13px] text-muted">
-              Informações privadas de identificação.
+              Informações privadas de identificação e CNPJ.
             </div>
           </div>
           <FormularioDadosConta />
+          <CartaoCnpj v-if="vitrine" v-model="vitrine" />
         </template>
       </main>
     </div>

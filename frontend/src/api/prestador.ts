@@ -21,7 +21,10 @@ export interface Vitrine {
   disponibilidade: string | null
   servicos: Servico[]
   portfolio: ItemPortfolio[]
+  /** Sem máscara; só o próprio prestador vê. Ter CNPJ = ter o selo. */
+  cnpj: string | null
   cnpj_validado: boolean
+  cnpj_validado_em: string | null
   criado_em: string
   atualizado_em: string
 }
@@ -72,6 +75,12 @@ export const prestadorApi = {
 
   atualizarVitrine: (dados: VitrineAtualizacao) =>
     api.patch<Vitrine>('/conta/vitrine', dados).then((r) => r.data),
+
+  /** Só grava se a Receita (via BrasilAPI) confirmar que está ativo. Aceita com ou sem máscara. */
+  cadastrarCnpj: (cnpj: string) =>
+    api.put<Vitrine>('/conta/vitrine/cnpj', { cnpj }).then((r) => r.data),
+
+  removerCnpj: () => api.delete<Vitrine>('/conta/vitrine/cnpj').then((r) => r.data),
 
   adicionarAoPortfolio: (arquivo: File, legenda?: string) => {
     const formulario = new FormData()

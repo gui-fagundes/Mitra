@@ -43,7 +43,8 @@ class PrestadorPerfil(Base, SerializavelMixin):
     preco_min = Column(Numeric(10, 2), nullable=True)
     preco_max = Column(Numeric(10, 2), nullable=True)
     disponibilidade = Column(String(120), nullable=True)
-    # Só dígitos. Só é gravado depois de validado na BrasilAPI (RF-ID-07).
+    # Sem máscara (numérico ou alfanumérico). Só é gravado se a Receita confirmar,
+    # via BrasilAPI, que está ativo (RF-ID-07): ter CNPJ = ter o selo.
     cnpj = Column(String(14), nullable=True, unique=True)
     cnpj_validado_em = Column(DateTime, nullable=True)
     criado_em = Column(DateTime, nullable=False, default=agora)

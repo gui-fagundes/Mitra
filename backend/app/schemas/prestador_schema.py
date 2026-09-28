@@ -56,6 +56,12 @@ class VitrineAtualizacao(_CamposVitrine):
     _servicos = field_validator("servicos")(_validar_servicos)
 
 
+class CnpjEntrada(BaseModel):
+    """Aceita com ou sem máscara (12.345.678/0001-95 ou 12345678000195)."""
+
+    cnpj: str = Field(min_length=14, max_length=18)
+
+
 class ItemPortfolioResposta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -95,7 +101,10 @@ class VitrineResposta(BaseModel):
     disponibilidade: str | None
     servicos: list[ServicoResposta] = Field(validation_alias="servicos_ordenados")
     portfolio: list[ItemPortfolioResposta]
+    # Só o próprio prestador vê o número; o público vê apenas o selo.
+    cnpj: str | None
     cnpj_validado: bool
+    cnpj_validado_em: datetime | None
     criado_em: datetime
     atualizado_em: datetime
 

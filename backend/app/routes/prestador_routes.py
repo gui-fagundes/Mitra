@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.config.dependencies import obter_sessao, obter_usuario_logado
 from app.models.usuario_model import Usuario
 from app.schemas.prestador_schema import (
+    CnpjEntrada,
     ItemPortfolioResposta,
     LegendaPortfolioAtualizacao,
     OrdemPortfolioEntrada,
@@ -42,6 +43,27 @@ def atualizar_vitrine(
     return prestador_services.atualizar_vitrine(
         usuario_logado, corpo.model_dump(exclude_unset=True), db
     )
+
+
+# --- CNPJ (RF-ID-07) -------------------------------------------------------------
+
+
+@rotas_vitrine.put("/cnpj", response_model=VitrineResposta)
+def cadastrar_cnpj(
+    corpo: CnpjEntrada,
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    """Só grava se a Receita (via BrasilAPI) confirmar que o CNPJ está ativo."""
+    return prestador_services.cadastrar_cnpj(usuario_logado, corpo.model_dump(), db)
+
+
+@rotas_vitrine.delete("/cnpj", response_model=VitrineResposta)
+def remover_cnpj(
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    return prestador_services.remover_cnpj(usuario_logado, db)
 
 
 # --- Portfólio (RF-ID-04) ------------------------------------------------------
