@@ -5,6 +5,7 @@ import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
 import { ErroApi } from '../api/client'
 import { contaApi, type ContaAtualizacao, type Usuario } from '../api/conta'
 import { useSessaoStore } from '../stores/sessao'
+import FotoUsuario from '../components/FotoUsuario.vue'
 import PublicNav from '../components/PublicNav.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import StarRating from '../components/StarRating.vue'
@@ -56,6 +57,35 @@ async function salvarDados() {
     }
   } finally {
     salvando.value = false
+  }
+}
+
+const enviandoFoto = ref(false)
+const erroFoto = ref<string | null>(null)
+
+async function enviarFoto(evento: Event) {
+  const campo = evento.target as HTMLInputElement
+  const arquivo = campo.files?.[0]
+  campo.value = '' // permite escolher o mesmo arquivo de novo
+  if (!arquivo) return
+
+  erroFoto.value = null
+  enviandoFoto.value = true
+  try {
+    sessao.definirUsuario(await contaApi.enviarFoto(arquivo))
+  } catch (e) {
+    erroFoto.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
+  } finally {
+    enviandoFoto.value = false
+  }
+}
+
+async function removerFoto() {
+  erroFoto.value = null
+  try {
+    sessao.definirUsuario(await contaApi.removerFoto())
+  } catch (e) {
+    erroFoto.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
   }
 }
 
@@ -133,10 +163,15 @@ async function sair() {
 
     <!-- Header mobile: identidade -->
     <div class="flex items-center gap-3.5 border-b border-rule-soft bg-surface px-5 py-4 md:hidden">
-      <div class="ph h-14 w-14 shrink-0 rounded-full"></div>
+      <FotoUsuario
+        :url="sessao.usuario?.foto_url"
+        :nome="sessao.usuario?.nome"
+        tamanho="h-14 w-14 text-lg" />
       <div class="min-w-0 flex-1">
         <div class="text-base font-semibold">{{ sessao.usuario?.nome ?? '[Seu nome]' }}</div>
-        <div class="text-xs text-muted">Rio Grande, RS · cliente</div>
+        <div class="text-xs text-muted">
+          {{ sessao.usuario?.cidade ? `${rotuloCidade(sessao.usuario.cidade)} · ` : '' }}cliente
+        </div>
       </div>
     </div>
 
@@ -145,7 +180,7 @@ async function sair() {
       <!-- Sidebar desktop -->
       <aside class="hidden flex-col gap-6 border-r border-rule-soft bg-surface p-6 md:flex">
         <div class="flex items-center gap-3 px-1.5">
-          <div class="ph h-11 w-11 shrink-0 rounded-full"></div>
+          <FotoUsuario :url="sessao.usuario?.foto_url" :nome="sessao.usuario?.nome" />
           <div class="min-w-0">
             <div class="truncate text-sm font-semibold">{{ sessao.usuario?.nome ?? '[Seu nome]' }}</div>
             <div class="text-xs text-muted">Cliente</div>
@@ -287,6 +322,37 @@ async function sair() {
           </div>
 
           <div class="rounded-2xl border border-rule bg-surface p-6">
+            <!-- Foto: upload direto, independente do "Salvar alterações" -->
+            <div class="mb-5 flex items-center gap-4 border-b border-dashed border-rule-soft pb-5">
+              <FotoUsuario
+                :url="sessao.usuario?.foto_url"
+                :nome="sessao.usuario?.nome"
+                tamanho="h-16 w-16 text-xl" />
+              <div class="flex flex-col gap-1.5">
+                <div class="flex items-center gap-3">
+                  <label
+                    :class="['cursor-pointer rounded-lg border border-ink px-3 py-1.5 text-[13px] font-medium',
+                      enviandoFoto ? 'pointer-events-none opacity-60' : '']">
+                    {{ enviandoFoto ? 'Enviando…' : sessao.usuario?.foto_url ? 'Trocar foto' : 'Enviar foto' }}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      class="sr-only"
+                      @change="enviarFoto" />
+                  </label>
+                  <button
+                    v-if="sessao.usuario?.foto_url"
+                    type="button"
+                    class="text-[13px] text-ink-soft underline underline-offset-[3px]"
+                    @click="removerFoto">
+                    Remover
+                  </button>
+                </div>
+                <span v-if="erroFoto" class="text-[12px] text-red-700">{{ erroFoto }}</span>
+                <span v-else class="text-[12px] text-muted">JPG, PNG ou WebP, até 5 MB.</span>
+              </div>
+            </div>
+
             <div class="grid gap-4 md:grid-cols-2">
               <label class="flex flex-col gap-1.5">
                 <span class="mono-sm">Nome completo</span>

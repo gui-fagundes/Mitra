@@ -29,7 +29,6 @@ export interface ContaAtualizacao {
   nome?: string
   idcidade?: number | null
   telefone?: string | null
-  foto_url?: string | null
   notificar_email?: boolean
   busca_somente_cnpj?: boolean
 }
@@ -47,6 +46,20 @@ export const contaApi = {
 
   atualizar: (dados: ContaAtualizacao) =>
     api.patch<Usuario>('/conta', dados).then((r) => r.data),
+
+  /** JPG, PNG ou WebP de até 5 MB. */
+  enviarFoto: (arquivo: File) => {
+    const formulario = new FormData()
+    formulario.append('arquivo', arquivo)
+    // Sobrescreve o JSON padrão do cliente; o navegador completa o boundary.
+    return api
+      .put<Usuario>('/conta/foto', formulario, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data)
+  },
+
+  removerFoto: () => api.delete<Usuario>('/conta/foto').then((r) => r.data),
 
   /** Sempre resolve (204), exista ou não conta com o e-mail. */
   esqueciSenha: (email: string) =>

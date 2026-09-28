@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.config.dependencies import obter_sessao, obter_usuario_logado
@@ -49,6 +49,23 @@ def atualizar_conta(
     db: Session = Depends(obter_sessao),
 ):
     return conta_services.atualizar(usuario_logado, corpo.model_dump(exclude_unset=True), db)
+
+
+@rotas_conta.put("/foto", response_model=UsuarioResposta)
+def trocar_foto(
+    arquivo: UploadFile = File(description="Imagem JPG, PNG ou WebP de até 5 MB"),
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    return conta_services.trocar_foto(usuario_logado, arquivo, db)
+
+
+@rotas_conta.delete("/foto", response_model=UsuarioResposta)
+def remover_foto(
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    return conta_services.remover_foto(usuario_logado, db)
 
 
 @rotas_conta.post("/senha/esqueci", status_code=204)

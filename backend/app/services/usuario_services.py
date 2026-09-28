@@ -1,8 +1,9 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.models.usuario_model import Usuario
 from app.services import cidade_services
+from app.utils import arquivo_utils
 from app.utils.data_utils import agora
 from app.utils.seguranca_utils import gerar_hash_senha
 
@@ -50,9 +51,8 @@ def atualizar_usuario(usuario: Usuario, payload: dict, db: Session) -> Usuario:
     if payload.get("idcidade") is not None:
         cidade_services.validar_cidade_ativa(payload["idcidade"], db)
 
-    for campo in ("telefone", "foto_url"):
-        if campo in payload:
-            payload[campo] = _normalizar_opcional(payload[campo])
+    if "telefone" in payload:
+        payload["telefone"] = _normalizar_opcional(payload["telefone"])
     if "nome" in payload:
         payload["nome"] = payload["nome"].strip()
         if not payload["nome"]:
@@ -67,4 +67,32 @@ def atualizar_usuario(usuario: Usuario, payload: dict, db: Session) -> Usuario:
     db.commit()
     db.refresh(usuario)
 
+    return usuario
+
+
+def trocar_foto(usuario: Usuario, arquivo: UploadFile, db: Session) -> Usuario:
+    foto_anterior = usuario.foto_url
+    nova_foto = arquivo_utils.salvar_imagem(arquivo, "fotos")
+
+    usuario.foto_url = nova_foto
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        arquivo_utils.remover_arquivo(nova_foto)
+        raise
+    db.refresh(usuario)
+
+    # Só apaga a antiga depois que a nova está gravada no banco.
+    arquivo_utils.remover_arquivo(foto_anterior)
+    return usuario
+
+
+def remover_foto(usuario: Usuario, db: Session) -> Usuario:
+    foto_anterior = usuario.foto_url
+    usuario.foto_url = None
+    db.commit()
+    db.refresh(usuario)
+
+    arquivo_utils.remover_arquivo(foto_anterior)
     return usuario

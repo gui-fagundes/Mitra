@@ -23,6 +23,9 @@ htmlcov/
 .env
 .env.local
 
+# Imagens enviadas pelos usuários em desenvolvimento (UPLOADS_DIR)
+backend/arquivos/
+
 # ==============================================================================
 # Frontend (Vite / Vue / TypeScript)
 # ==============================================================================

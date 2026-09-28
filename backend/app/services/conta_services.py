@@ -1,7 +1,7 @@
 import hashlib
 from datetime import timedelta
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -51,6 +51,14 @@ def cadastrar(payload: dict, db: Session) -> Usuario:
 
 def atualizar(usuario: Usuario, payload: dict, db: Session) -> Usuario:
     return usuario_services.atualizar_usuario(usuario, payload, db)
+
+
+def trocar_foto(usuario: Usuario, arquivo: UploadFile, db: Session) -> Usuario:
+    return usuario_services.trocar_foto(usuario, arquivo, db)
+
+
+def remover_foto(usuario: Usuario, db: Session) -> Usuario:
+    return usuario_services.remover_foto(usuario, db)
 
 
 # --- Esqueci minha senha -------------------------------------------------------

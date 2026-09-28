@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -21,6 +22,16 @@ MINUTOS_VALIDADE_TOKEN_SENHA = 30
 
 # Base dos links enviados por e-mail (ex.: redefinição de senha).
 URL_FRONTEND = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+
+# Arquivos enviados pelos usuários (fotos, portfólio). Ficam em disco e são servidos
+# pela própria API em ROTA_ARQUIVOS; no banco guardamos o caminho público
+# ("/arquivos/fotos/<uuid>.jpg"), então dá para trocar por um storage externo depois.
+# `or`: UPLOADS_DIR vazio (como no .env.example) também cai no padrão.
+DIR_ARQUIVOS = Path(
+    os.getenv("UPLOADS_DIR") or Path(__file__).resolve().parents[2] / "arquivos"
+).resolve()
+ROTA_ARQUIVOS = "/arquivos"
+TAMANHO_MAXIMO_IMAGEM_MB = 5
 
 AMBIENTE = os.getenv("ENV", "development").lower()
 EM_PRODUCAO = AMBIENTE == "production"

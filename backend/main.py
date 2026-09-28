@@ -2,9 +2,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.config.constants import ORIGENS_CORS
+from app.config.constants import DIR_ARQUIVOS, ORIGENS_CORS, ROTA_ARQUIVOS
 from app.config.migrations import aplicar_migracoes
 from app.middlewares.sessao_deslizante import renovar_sessao
 from app.middlewares.tratamento_erros import capturar_excecoes
@@ -34,6 +35,10 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=capturar_excecoes)
 app.add_middleware(BaseHTTPMiddleware, dispatch=renovar_sessao)
 
 registrar_rotas(app)
+
+# Imagens enviadas pelos usuários (ver app/utils/arquivo_utils.py).
+DIR_ARQUIVOS.mkdir(parents=True, exist_ok=True)
+app.mount(ROTA_ARQUIVOS, StaticFiles(directory=DIR_ARQUIVOS), name="arquivos")
 
 
 @app.get("/saude")

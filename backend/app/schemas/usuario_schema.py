@@ -23,12 +23,14 @@ class UsuarioCriacao(BaseModel):
 
 
 class UsuarioAtualizacao(BaseModel):
-    """Campos ausentes não mudam. `null` limpa os opcionais (cidade, telefone, foto)."""
+    """Campos ausentes não mudam. `null` limpa os opcionais (cidade, telefone).
+
+    A foto não entra aqui: só muda por upload (PUT/DELETE /conta/foto).
+    """
 
     nome: str | None = Field(default=None, min_length=1, max_length=255)
     idcidade: int | None = None
     telefone: str | None = Field(default=None, max_length=32)
-    foto_url: str | None = Field(default=None, max_length=1024)
     notificar_email: bool | None = None
     busca_somente_cnpj: bool | None = None
 

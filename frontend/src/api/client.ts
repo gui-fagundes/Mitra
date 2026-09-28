@@ -10,8 +10,10 @@ export class ErroApi extends Error {
   }
 }
 
+export const BASE_API = '/api'
+
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: BASE_API,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 })
@@ -31,3 +33,13 @@ api.interceptors.response.use(
     return Promise.reject(new ErroApi(status, detalhe))
   },
 )
+
+/**
+ * URL para exibir um arquivo enviado (foto, portfólio). A API guarda o caminho
+ * público ("/arquivos/fotos/x.jpg"), servido por ela mesma — então passa pelo
+ * mesmo prefixo das chamadas. URLs absolutas (storage externo no futuro) passam direto.
+ */
+export function urlArquivo(caminho: string | null | undefined): string | null {
+  if (!caminho) return null
+  return /^https?:\/\//.test(caminho) ? caminho : `${BASE_API}${caminho}`
+}

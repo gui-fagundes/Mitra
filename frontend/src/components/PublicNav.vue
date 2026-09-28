@@ -8,6 +8,7 @@
  */
 import { useSessaoStore } from '../stores/sessao'
 import BrandMark from './BrandMark.vue'
+import FotoUsuario from './FotoUsuario.vue'
 
 const sessao = useSessaoStore()
 </script>
@@ -66,7 +67,11 @@ const sessao = useSessaoStore()
           <span class="hidden md:inline">Mensagens</span>
         </router-link>
         <div class="flex items-center gap-2 rounded-full border border-rule px-3 py-1.5">
-          <span class="h-6 w-6 rounded-full bg-ph"></span>
+          <FotoUsuario
+            :url="sessao.usuario?.foto_url"
+            :nome="sessao.usuario?.nome"
+            tamanho="h-6 w-6 text-[11px]"
+          />
           <span class="hidden text-sm md:inline">{{ sessao.usuario?.nome ?? 'Você' }}</span>
         </div>
       </template>

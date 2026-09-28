@@ -11,6 +11,8 @@ Estratégia:
 """
 
 import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -23,6 +25,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 load_dotenv()
 
+# Uploads dos testes vão para uma pasta temporária. Precisa ser definido antes de
+# qualquer import de `app` (constants lê UPLOADS_DIR no import).
+DIR_UPLOADS_TESTE = Path(tempfile.mkdtemp(prefix="mitra_uploads_teste_"))
+os.environ["UPLOADS_DIR"] = str(DIR_UPLOADS_TESTE)
+
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 if not TEST_DATABASE_URL:
     raise RuntimeError("TEST_DATABASE_URL não configurada no .env")
@@ -32,6 +39,12 @@ if TEST_DATABASE_URL.startswith("postgresql://"):
 
 
 DIR_BACKEND = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _limpar_uploads_de_teste():
+    yield
+    shutil.rmtree(DIR_UPLOADS_TESTE, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")
