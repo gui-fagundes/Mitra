@@ -44,3 +44,40 @@ export function formatarCnpj(cnpj: string): string {
 export function formatarData(dataIso: string): string {
   return new Date(dataIso).toLocaleDateString('pt-BR')
 }
+
+/**
+ * Destino seguro para depois do login: só caminhos internos do Mitra
+ * ("/mensagens/3"), nunca outro site ("//malicioso.com", "https://…").
+ */
+export function destinoInterno(valor: unknown): string | null {
+  const caminho = Array.isArray(valor) ? valor[0] : valor
+  if (typeof caminho !== 'string') return null
+  return caminho.startsWith('/') && !caminho.startsWith('//') ? caminho : null
+}
+
+function mesmoDia(a: Date, b: Date): boolean {
+  return a.toDateString() === b.toDateString()
+}
+
+/** "14:32". */
+export function formatarHora(dataIso: string): string {
+  return new Date(dataIso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+/** Separador de dia no chat: "Hoje", "Ontem" ou "12/09/2026". */
+export function rotuloDia(dataIso: string, agora = new Date()): string {
+  const data = new Date(dataIso)
+  if (mesmoDia(data, agora)) return 'Hoje'
+  const ontem = new Date(agora)
+  ontem.setDate(agora.getDate() - 1)
+  if (mesmoDia(data, ontem)) return 'Ontem'
+  return data.toLocaleDateString('pt-BR')
+}
+
+/** Horário compacto da lista de conversas: "14:32" (hoje), "Ontem" ou "12/09". */
+export function quandoCurto(dataIso: string, agora = new Date()): string {
+  const rotulo = rotuloDia(dataIso, agora)
+  if (rotulo === 'Hoje') return formatarHora(dataIso)
+  if (rotulo === 'Ontem') return rotulo
+  return new Date(dataIso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}

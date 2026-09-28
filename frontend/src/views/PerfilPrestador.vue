@@ -3,7 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { rotuloCidade } from '../api/cidade'
 import { ErroApi, urlArquivo } from '../api/client'
+import { conversaApi } from '../api/conversa'
 import { prestadorApi, type PrestadorPublico } from '../api/prestador'
+import { useSessaoStore } from '../stores/sessao'
 import { atividadeRelativa, formatarFaixaPreco, tempoDesde } from '../utils/formatacao'
 import CategoryChip from '../components/CategoryChip.vue'
 import FotoUsuario from '../components/FotoUsuario.vue'
@@ -13,6 +15,7 @@ import Tabs from '../components/Tabs.vue'
 
 const route = useRoute()
 const router = useRouter()
+const sessao = useSessaoStore()
 
 type Aba = 'sobre' | 'portfolio' | 'avaliacoes'
 const aba = ref<Aba>('sobre')
@@ -57,9 +60,27 @@ watch(
   { immediate: true },
 )
 
-// A conversa e a contratação vêm com a etapa de contratação e chat.
-function iniciarContato() {
-  router.push({ name: 'mensagens' })
+const ehMeuPerfil = computed(
+  () => !!prestador.value && sessao.usuario?.idusuario === prestador.value.idusuario,
+)
+
+// Abre a conversa existente com este prestador ou um rascunho (a conversa só é
+// criada com a primeira mensagem). Sem login, passa pelo login e volta para cá.
+async function iniciarContato() {
+  if (!prestador.value) return
+  const destinoNovo = { name: 'mensagens', query: { para: String(prestador.value.idusuario) } }
+  if (!sessao.logado) {
+    router.push({ name: 'login', query: { redirect: router.resolve(destinoNovo).fullPath } })
+    return
+  }
+  try {
+    const existente = (await conversaApi.listar()).find(
+      (c) => c.papel === 'cliente' && c.outra_parte.idusuario === prestador.value!.idusuario,
+    )
+    router.push(existente ? { name: 'mensagem', params: { id: existente.idconversa } } : destinoNovo)
+  } catch {
+    router.push(destinoNovo)
+  }
 }
 </script>
 
@@ -139,7 +160,7 @@ function iniciarContato() {
             </div>
           </div>
 
-          <div class="mt-4 lg:hidden">
+          <div v-if="!ehMeuPerfil" class="mt-4 lg:hidden">
             <button class="h-[50px] w-full rounded-xl bg-gold text-[15px] font-semibold text-ink hover:opacity-90" @click="iniciarContato">
               Iniciar contato
             </button>
@@ -232,15 +253,26 @@ function iniciarContato() {
       </div>
 
       <aside class="sticky top-6 hidden self-start rounded-2xl border border-rule bg-surface p-6 lg:block">
-        <div class="mb-3">
-          <div class="mono mb-2">Entrar em contato</div>
-          <div class="text-[13px] leading-[1.5] text-ink-soft">
-            A conversa acontece dentro do Mitra e fica registrada para viabilizar a avaliação depois.
+        <template v-if="ehMeuPerfil">
+          <div class="mono mb-2">Este é o seu perfil</div>
+          <p class="mb-3 text-[13px] leading-[1.5] text-ink-soft">É assim que os clientes veem sua vitrine.</p>
+          <router-link
+            :to="{ name: 'conta-prestador' }"
+            class="block rounded-xl border border-ink py-3 text-center text-sm font-semibold">
+            Editar minha vitrine
+          </router-link>
+        </template>
+        <template v-else>
+          <div class="mb-3">
+            <div class="mono mb-2">Entrar em contato</div>
+            <div class="text-[13px] leading-[1.5] text-ink-soft">
+              A conversa acontece dentro do Mitra e fica registrada para viabilizar a avaliação depois.
+            </div>
           </div>
-        </div>
-        <button class="h-13 w-full rounded-xl bg-gold py-3.5 text-[15px] font-semibold text-ink hover:opacity-90" @click="iniciarContato">
-          Iniciar contato
-        </button>
+          <button class="h-13 w-full rounded-xl bg-gold py-3.5 text-[15px] font-semibold text-ink hover:opacity-90" @click="iniciarContato">
+            Iniciar contato
+          </button>
+        </template>
 
         <div class="my-4 h-px bg-rule-soft"></div>
 
@@ -257,7 +289,7 @@ function iniciarContato() {
       </aside>
     </div>
 
-    <div v-if="prestador" class="fixed inset-x-0 bottom-0 border-t border-rule bg-surface px-5 py-3 lg:hidden">
+    <div v-if="prestador && !ehMeuPerfil" class="fixed inset-x-0 bottom-0 border-t border-rule bg-surface px-5 py-3 lg:hidden">
       <button class="h-12 w-full rounded-lg bg-gold text-[15px] font-semibold text-ink hover:opacity-90" @click="iniciarContato">
         Iniciar contato
       </button>

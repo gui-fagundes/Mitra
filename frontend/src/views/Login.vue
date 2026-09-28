@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { contaApi } from '../api/conta'
 import { ErroApi } from '../api/client'
 import { useSessaoStore } from '../stores/sessao'
 import BrandMark from '../components/BrandMark.vue'
+import { destinoInterno } from '../utils/formatacao'
 
+const route = useRoute()
 const router = useRouter()
 const sessao = useSessaoStore()
 
@@ -21,7 +23,7 @@ async function submit() {
   try {
     const usuario = await contaApi.entrar(email.value, senha.value)
     sessao.definirUsuario(usuario)
-    router.push('/')
+    router.push(destinoInterno(route.query.redirect) ?? '/')
   } catch (e) {
     error.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
   } finally {
@@ -140,7 +142,7 @@ async function submit() {
         </div>
 
         <router-link
-          to="/register"
+          :to="{ name: 'register', query: route.query.redirect ? { redirect: route.query.redirect } : {} }"
           class="block rounded-lg border border-ink py-3.5 text-center text-sm font-semibold"
         >
           Criar uma conta nova

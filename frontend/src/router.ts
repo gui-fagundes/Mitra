@@ -72,7 +72,10 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const sessao = useSessaoStore()
-  if (to.meta.requiresAuth && !sessao.logado) return { name: 'login' }
+  // Depois de entrar, volta para onde a pessoa queria ir (ver Login.vue).
+  if (to.meta.requiresAuth && !sessao.logado) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
   if (to.meta.guestOnly && sessao.logado) return { name: 'home' }
 })
 

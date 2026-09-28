@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
 import { contaApi, type Papel } from '../api/conta'
 import { ErroApi } from '../api/client'
 import { useSessaoStore } from '../stores/sessao'
 import BrandMark from '../components/BrandMark.vue'
+import { destinoInterno } from '../utils/formatacao'
 
+const route = useRoute()
 const router = useRouter()
 const sessao = useSessaoStore()
 
@@ -45,8 +47,10 @@ async function submit() {
       papel: papel.value,
     })
     sessao.definirUsuario(usuario)
-    // Quem vai oferecer serviços cai direto na vitrine para preenchê-la.
-    router.push(usuario.e_prestador ? { name: 'conta-prestador' } : '/')
+    // Quem veio de um "Iniciar contato" volta para lá; quem vai oferecer
+    // serviços cai na vitrine para preenchê-la.
+    const destino = destinoInterno(route.query.redirect)
+    router.push(destino ?? (usuario.e_prestador ? { name: 'conta-prestador' } : '/'))
   } catch (e) {
     error.value = e instanceof ErroApi ? e.detalhe : 'Erro inesperado'
   } finally {
