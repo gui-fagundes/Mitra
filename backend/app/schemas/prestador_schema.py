@@ -130,3 +130,25 @@ class PrestadorPublicoResposta(BaseModel):
     servicos_concluidos: int = 0
     nota_media: float | None = None
     qtd_avaliacoes: int = 0
+
+
+class CartaoPrestadorResposta(BaseModel):
+    """Card de um prestador no resultado da busca."""
+
+    idusuario: int
+    nome: str
+    foto_url: str | None
+    cidade: CidadeResposta | None
+    bio: str | None
+    preco_min: float | None
+    preco_max: float | None
+    cnpj_validado: bool
+    servicos: list[ServicoResposta]
+    ultimo_acesso_em: datetime | None
+    nota_media: float | None
+    qtd_avaliacoes: int
+
+
+class ResultadoBuscaResposta(BaseModel):
+    total: int
+    itens: list[CartaoPrestadorResposta]

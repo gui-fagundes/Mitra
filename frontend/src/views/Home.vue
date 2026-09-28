@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
 import { taxonomiaApi, type Categoria } from '../api/taxonomia'
+import { useSessaoStore } from '../stores/sessao'
 import PublicNav from '../components/PublicNav.vue'
 
 const router = useRouter()
+const sessao = useSessaoStore()
 
 const query = ref('')
-const cidade = ref('Rio Grande, RS')
+const cidades = ref<Cidade[]>([])
+const idcidade = ref<number | null>(null)
 
 function buscar() {
   router.push({
     name: 'buscar',
-    query: { q: query.value || undefined, cidade: cidade.value },
+    query: {
+      termo: query.value.trim() || undefined,
+      idcidade: idcidade.value ?? undefined,
+    },
   })
 }
 
@@ -27,6 +34,12 @@ onMounted(async () => {
     categorias.value = await taxonomiaApi.listarCategorias()
   } catch {
     // Sem a API, a seção de categorias fica vazia; a busca continua funcionando.
+  }
+  try {
+    cidades.value = await cidadeApi.listar()
+    idcidade.value = sessao.usuario?.cidade?.idcidade ?? cidades.value[0]?.idcidade ?? null
+  } catch {
+    // Sem a lista, a busca segue sem priorizar cidade.
   }
 })
 
@@ -87,10 +100,12 @@ const populares = ['Eletricista', 'Adestramento', 'Aula particular', 'Personal t
               <div class="min-w-0 flex-1">
                 <div class="mono-sm hidden md:block">Cidade</div>
                 <select
-                  v-model="cidade"
+                  v-model="idcidade"
                   class="w-full appearance-none border-0 bg-transparent text-[15px] outline-none"
                 >
-                  <option>Rio Grande, RS</option>
+                  <option v-for="c in cidades" :key="c.idcidade" :value="c.idcidade">
+                    {{ rotuloCidade(c) }}
+                  </option>
                 </select>
               </div>
             </label>
@@ -110,7 +125,7 @@ const populares = ['Eletricista', 'Adestramento', 'Aula particular', 'Personal t
             <router-link
               v-for="p in populares"
               :key="p"
-              :to="{ name: 'buscar', query: { q: p } }"
+              :to="{ name: 'buscar', query: { termo: p } }"
               class="rounded-full border border-rule bg-surface px-3.5 py-1.5 text-[13px] font-medium"
             >
               {{ p }}

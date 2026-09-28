@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.config.dependencies import obter_sessao, obter_usuario_logado
@@ -9,11 +9,13 @@ from app.schemas.prestador_schema import (
     LegendaPortfolioAtualizacao,
     OrdemPortfolioEntrada,
     PrestadorPublicoResposta,
+    ResultadoBuscaResposta,
     VitrineAtualizacao,
     VitrineCriacao,
     VitrineResposta,
 )
-from app.services import portfolio_services, prestador_services
+from app.services import busca_services, portfolio_services, prestador_services
+from app.services.busca_services import Ordem
 
 # A vitrine do próprio usuário mora sob /conta, como os demais recursos do logado.
 rotas_vitrine = APIRouter(prefix="/conta/vitrine", tags=["Vitrine do prestador"])
@@ -109,7 +111,41 @@ def remover_do_portfolio(
     portfolio_services.remover(usuario_logado, idprestadorportfolio, db)
 
 
-# --- Perfil público -------------------------------------------------------------
+# --- Busca e perfil público ----------------------------------------------------
+
+
+@rotas_prestador.get("", response_model=ResultadoBuscaResposta)
+def buscar_prestadores(
+    termo: str | None = Query(default=None, max_length=100, description="Nome, bio ou serviço"),
+    idcidade: int | None = Query(default=None, description="Prioriza (não filtra) esta cidade"),
+    categoria: str | None = Query(default=None, description="Slug da categoria"),
+    servicos: list[int] = Query(default=[], description="Atende ao menos um destes"),
+    somente_cnpj: bool = False,
+    preco_min: float | None = Query(default=None, ge=0),
+    preco_max: float | None = Query(default=None, ge=0),
+    nota_min: float | None = Query(default=None, ge=0, le=5),
+    ordem: Ordem = "reputacao",
+    limite: int = Query(default=20, ge=1, le=50),
+    deslocamento: int = Query(default=0, ge=0),
+    db: Session = Depends(obter_sessao),
+):
+    """RF-BS-01 a 05. Público; ordenação orgânica, sem posições pagas."""
+    return busca_services.buscar_prestadores(
+        {
+            "termo": termo,
+            "idcidade": idcidade,
+            "categoria": categoria,
+            "servicos": servicos,
+            "somente_cnpj": somente_cnpj,
+            "preco_min": preco_min,
+            "preco_max": preco_max,
+            "nota_min": nota_min,
+            "ordem": ordem,
+            "limite": limite,
+            "deslocamento": deslocamento,
+        },
+        db,
+    )
 
 
 @rotas_prestador.get("/{idusuario}", response_model=PrestadorPublicoResposta)
