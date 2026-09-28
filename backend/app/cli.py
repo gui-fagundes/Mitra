@@ -43,11 +43,15 @@ def rollback() -> int:
 
 
 def makemigration() -> int:
-    """Gera nova revisão autogenerate. Uso: uv run makemigration \"mensagem\" """
-    if len(sys.argv) < 2:
+    """Gera nova revisão autogenerate.
+
+    Uso: uv run makemigration "mensagem" (o -m antes da mensagem é opcional)
+    """
+    args = [a for a in sys.argv[1:] if a != "-m"]
+    if not args:
         print('Uso: uv run makemigration "descrição da migration"')
         return 1
-    return _run(["alembic", "revision", "--autogenerate", "-m", sys.argv[1]])
+    return _run(["alembic", "revision", "--autogenerate", "-m", " ".join(args)])
 
 
 def test() -> int:
