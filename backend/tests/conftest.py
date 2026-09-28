@@ -2,15 +2,20 @@
 
 Estratégia:
 - Um engine único apontando pro TEST_DATABASE_URL, criado uma vez por sessão de teste.
-- Antes de tudo: drop_all + create_all (garante schema limpo, sem depender do Alembic).
+- Antes de tudo: recria o schema `public` e aplica as migrations do Alembic até head.
+  Assim o banco de teste tem os mesmos dados iniciais que as migrations gravam, e
+  cada rodada também exercita as próprias migrations.
 - Cada teste roda dentro de uma transação que é revertida ao fim -> isolamento total,
   sem precisar de TRUNCATE. O FastAPI recebe uma sessão amarrada a essa transação via
   dependency_overrides.
 """
 
 import os
+from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -26,15 +31,22 @@ if TEST_DATABASE_URL.startswith("postgresql://"):
     TEST_DATABASE_URL = TEST_DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 
+DIR_BACKEND = Path(__file__).resolve().parents[1]
+
+
 @pytest.fixture(scope="session")
 def engine():
-    from app.config.database import Base
-    from app.models import LogErro, Usuario  # noqa: F401  registra tabelas no metadata
-
     engine = create_engine(TEST_DATABASE_URL)
 
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    with engine.begin() as conexao:
+        conexao.exec_driver_sql("DROP SCHEMA IF EXISTS public CASCADE")
+        conexao.exec_driver_sql("CREATE SCHEMA public")
+
+    cfg = Config(str(DIR_BACKEND / "alembic.ini"))
+    cfg.set_main_option("script_location", str(DIR_BACKEND / "migrations"))
+    with engine.begin() as conexao:
+        cfg.attributes["connection"] = conexao
+        command.upgrade(cfg, "head")
 
     yield engine
 
