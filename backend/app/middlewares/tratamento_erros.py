@@ -14,7 +14,7 @@ async def capturar_excecoes(requisicao: Request, proximo):
     try:
         return await proximo(requisicao)
     except Exception as e:
-        print(f"Erro não tratado capturado pelo middleware: {e}")
+        print(f"Erro não tratado capturado pelo middleware: {e}", flush=True)
         traceback.print_exc()
 
         db = SessaoLocal()
@@ -29,7 +29,7 @@ async def capturar_excecoes(requisicao: Request, proximo):
             db.commit()
         except Exception as erro_log:
             db.rollback()
-            print(f"Falha ao registrar log de erro: {erro_log}")
+            print(f"Falha ao registrar log de erro: {erro_log}", flush=True)
         finally:
             db.close()
 

@@ -15,7 +15,9 @@ from app.config.database import DATABASE_URL, Base  # noqa: E402
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Sem disable_existing_loggers=False, rodar as migrations no startup (lifespan)
+    # desligaria os loggers do uvicorn e sumiriam os logs de acesso.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 

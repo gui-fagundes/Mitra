@@ -1,5 +1,11 @@
 import os
 
+from dotenv import load_dotenv
+
+# Este módulo é importado antes de qualquer outro que chame load_dotenv (ver main.py);
+# sem isto, ENV e CORS_ORIGINS do .env seriam ignorados.
+load_dotenv()
+
 MINUTOS_EXPIRACAO_TOKEN = 60
 
 # Intervalo mínimo entre gravações de usuario.ultimo_acesso_em (evita escrita a cada request).
