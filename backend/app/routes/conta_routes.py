@@ -1,4 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, Response, UploadFile
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.config.dependencies import obter_sessao, obter_usuario_logado
@@ -11,7 +13,7 @@ from app.schemas.usuario_schema import (
     UsuarioCriacao,
     UsuarioResposta,
 )
-from app.services import conta_services
+from app.services import conta_services, exportacao_services
 from app.utils import email_utils
 from app.utils.cookie_utils import apagar_cookie_sessao, gravar_cookie_sessao
 
@@ -85,3 +87,18 @@ def esqueci_senha(
 @rotas_conta.post("/senha/redefinir", status_code=204)
 def redefinir_senha(corpo: RedefinirSenhaEntrada, db: Session = Depends(obter_sessao)):
     conta_services.redefinir_senha(corpo.model_dump(), db)
+
+
+@rotas_conta.get("/exportar")
+def exportar_dados(
+    requisicao: Request,
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    db: Session = Depends(obter_sessao),
+):
+    """RF-DP-02: todos os dados pessoais do titular num JSON para download."""
+    dados = exportacao_services.exportar(usuario_logado, str(requisicao.base_url), db)
+    nome_arquivo = f"mitra-meus-dados-{dados['gerado_em']:%Y-%m-%d}.json"
+    return JSONResponse(
+        content=jsonable_encoder(dados),
+        headers={"Content-Disposition": f'attachment; filename="{nome_arquivo}"'},
+    )

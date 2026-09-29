@@ -3,7 +3,7 @@
 // foto (upload direto) + nome, cidade e telefone (PATCH /conta).
 import { onMounted, ref, watch } from 'vue'
 import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
-import { ErroApi } from '../api/client'
+import { BASE_API, ErroApi } from '../api/client'
 import { contaApi, type Usuario } from '../api/conta'
 import { useSessaoStore } from '../stores/sessao'
 import FotoUsuario from './FotoUsuario.vue'
@@ -154,8 +154,14 @@ onMounted(async () => {
     <slot />
 
     <div class="mt-5 flex flex-col items-start justify-between gap-3 border-t border-dashed border-rule-soft pt-4 md:flex-row md:items-center">
-      <!-- Exportação LGPD ainda não implementada no backend (GET /conta/exportar). -->
-      <a href="#" class="text-[13px] text-ink-soft underline">Exportar meus dados · LGPD</a>
+      <!-- RF-DP-02: o navegador baixa o JSON direto (cookie de sessão vai junto). -->
+      <a
+        :href="`${BASE_API}/conta/exportar`"
+        download
+        class="text-[13px] text-ink-soft underline"
+        title="Baixa um arquivo JSON com todos os seus dados no Mitra">
+        Exportar meus dados · LGPD
+      </a>
       <div class="flex items-center gap-3">
         <span
           v-if="mensagem"
