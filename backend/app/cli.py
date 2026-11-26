@@ -53,6 +53,24 @@ def criar_migracao() -> int:
     return _executar(["alembic", "revision", "--autogenerate", "-m", " ".join(args)])
 
 
+def expurgar_registros() -> int:
+    """Apaga auditoria e log de erros que passaram do prazo de guarda."""
+    from app.config.constants import DIAS_RETENCAO_AUDITORIA, DIAS_RETENCAO_LOGERRO
+    from app.config.database import SessaoLocal
+    from app.services.auditoria_services import expurgar
+
+    db = SessaoLocal()
+    try:
+        auditoria, logerro = expurgar(db)
+    finally:
+        db.close()
+    print(
+        f"Removidos {auditoria} registros de auditoria (> {DIAS_RETENCAO_AUDITORIA} dias) "
+        f"e {logerro} de log de erros (> {DIAS_RETENCAO_LOGERRO} dias)."
+    )
+    return 0
+
+
 def testar() -> int:
     """Roda pytest, repassando argumentos extras."""
     return _executar(["pytest", *sys.argv[1:]])

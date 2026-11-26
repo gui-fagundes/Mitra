@@ -1,6 +1,7 @@
 """Auditoria de ações sensíveis e contexto da requisição (RF-AD-02, RNF-DI-02)."""
 
 import re
+from datetime import timedelta
 
 import pytest
 from fastapi import Depends
@@ -13,6 +14,7 @@ from app.models.auditoria_model import (
     CONTA_CADASTRAR,
     CONTA_ENTRAR,
     CONTA_ENTRAR_FALHOU,
+    DADOS_EXPORTAR,
     EMAIL_VERIFICAR,
     SENHA_REDEFINIR,
     SENHA_SOLICITAR,
@@ -20,6 +22,7 @@ from app.models.auditoria_model import (
 from app.services import auditoria_services
 from app.utils import cnpj_utils
 from app.utils.cnpj_utils import ResultadoConsulta, SituacaoConsulta
+from app.utils.data_utils import agora
 
 SENHA = "senha1234"
 EMAIL = "ana@test.com"
@@ -164,6 +167,16 @@ class TestAcoesDaConta:
 
         assert len(_registros(sessao, EMAIL_VERIFICAR)) == 1
 
+    def test_exportacao_registra_e_traz_os_acessos(self, api, sessao):
+        _cadastrar(api)
+
+        dados = api.get("/conta/exportar").json()
+
+        assert len(_registros(sessao, DADOS_EXPORTAR)) == 1
+        acoes = [a["acao"] for a in dados["acessos"]]
+        assert acoes == [CONTA_CADASTRAR, DADOS_EXPORTAR]
+        assert set(dados["acessos"][0]) == {"acao", "em", "ip"}
+
 
 @pytest.fixture()
 def receita_ativa(monkeypatch):
@@ -212,6 +225,26 @@ class TestGuarda:
 
         registro = _registros(sessao, CONTA_CADASTRAR)[0]
         assert registro.idusuario is None
+
+    def test_expurgo_respeita_os_prazos(self, sessao):
+        momento = agora()
+        sessao.add_all(
+            [
+                Auditoria(acao=CONTA_ENTRAR, criado_em=momento - timedelta(days=400)),
+                Auditoria(acao=CONTA_ENTRAR, criado_em=momento - timedelta(days=30)),
+                LogErro(
+                    rota="/x", metodo="GET", erro="e", ocorrido_em=momento - timedelta(days=100)
+                ),
+                LogErro(
+                    rota="/x", metodo="GET", erro="e", ocorrido_em=momento - timedelta(days=10)
+                ),
+            ]
+        )
+        sessao.commit()
+
+        assert auditoria_services.expurgar(sessao) == (1, 1)
+        assert len(_registros(sessao)) == 1
+        assert sessao.query(LogErro).count() == 1
 
 
 ROTA_QUE_QUEBRA = "/_teste/quebra-logado"

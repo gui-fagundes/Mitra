@@ -5,24 +5,29 @@ Regras:
   propostas e contratações de que participou, avaliações feitas e recebidas);
 - conteúdo escrito por terceiros não vai: das mensagens recebidas, só data e remetente.
   Eventos automáticos do chat vão com texto (são gerados pelo sistema);
-- imagens (foto e portfólio) vão como links absolutos, não como arquivos.
+- imagens (foto e portfólio) vão como links absolutos, não como arquivos;
+- os acessos registrados na auditoria (ação, data e IP) também vão, sem os detalhes.
 """
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.models.auditoria_model import DADOS_EXPORTAR
 from app.models.avaliacao_model import Avaliacao
 from app.models.contratacao_model import Contratacao
 from app.models.conversa_model import Conversa
 from app.models.mensagem_model import Mensagem
 from app.models.usuario_model import Usuario
+from app.services import auditoria_services
 from app.services.avaliacao_services import nome_abreviado
 from app.utils.data_utils import agora
 
 AVISO = (
     "Dados pessoais mantidos pelo Mitra sobre o titular (LGPD, art. 18, II). "
     "Mensagens recebidas aparecem sem o conteúdo, que é dado pessoal de quem as escreveu. "
-    "Foto e portfólio aparecem como links para os arquivos."
+    "Foto e portfólio aparecem como links para os arquivos. "
+    "Os acessos são as ações sensíveis registradas por segurança (entradas na conta, "
+    "troca de senha, exportações), guardadas por até 12 meses."
 )
 
 
@@ -195,7 +200,16 @@ def _avaliacoes(usuario: Usuario, db: Session) -> tuple[list[dict], list[dict]]:
     return feitas, recebidas
 
 
+def _acessos(usuario: Usuario, db: Session) -> list[dict]:
+    return [
+        {"acao": a.acao, "em": a.criado_em, "ip": a.ip}
+        for a in auditoria_services.acessos_do_usuario(usuario.idusuario, db)
+    ]
+
+
 def exportar(usuario: Usuario, url_base: str, db: Session) -> dict:
+    # Registrada antes de montar: a própria exportação aparece entre os acessos.
+    auditoria_services.registrar_e_salvar(db, DADOS_EXPORTAR, idusuario=usuario.idusuario)
     feitas, recebidas = _avaliacoes(usuario, db)
     return {
         "gerado_em": agora(),
@@ -206,4 +220,5 @@ def exportar(usuario: Usuario, url_base: str, db: Session) -> dict:
         "contratacoes": _contratacoes(usuario, db),
         "avaliacoes_feitas": feitas,
         "avaliacoes_recebidas": recebidas,
+        "acessos": _acessos(usuario, db),
     }

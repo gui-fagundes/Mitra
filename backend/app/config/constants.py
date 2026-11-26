@@ -32,6 +32,10 @@ EMAIL_SUPORTE = os.getenv("EMAIL_SUPORTE") or None
 # deixe desligado: senão qualquer um escolhe o IP que vai para a auditoria.
 CONFIAR_X_FORWARDED_FOR = os.getenv("CONFIAR_PROXY", "").lower() in ("1", "true", "sim")
 
+# Prazos de guarda (`uv run expurgar-registros`). A aplicação nunca apaga nada antes.
+DIAS_RETENCAO_AUDITORIA = 365
+DIAS_RETENCAO_LOGERRO = 90
+
 # Arquivos enviados pelos usuários (fotos, portfólio). Ficam em disco e são servidos
 # pela própria API em ROTA_ARQUIVOS; no banco guardamos o caminho público
 # ("/arquivos/fotos/<uuid>.jpg"), então dá para trocar por um storage externo depois.

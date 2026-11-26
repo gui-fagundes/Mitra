@@ -7,10 +7,15 @@ contexto da requisição (middlewares/contexto_requisicao.py).
 Nunca grave segredos em `dados` (senha, hash, token): só o que mudou e não é sensível.
 """
 
+from datetime import timedelta
+
 from sqlalchemy.orm import Session
 
+from app.config.constants import DIAS_RETENCAO_AUDITORIA, DIAS_RETENCAO_LOGERRO
 from app.middlewares.contexto_requisicao import contexto_atual
 from app.models.auditoria_model import Auditoria
+from app.models.log_erro_model import LogErro
+from app.utils.data_utils import agora
 
 
 def registrar(
@@ -43,3 +48,29 @@ def registrar_e_salvar(db: Session, acao: str, **campos) -> Auditoria:
     registro = registrar(db, acao, **campos)
     db.commit()
     return registro
+
+
+def acessos_do_usuario(idusuario: int, db: Session) -> list[Auditoria]:
+    return (
+        db.query(Auditoria)
+        .filter(Auditoria.idusuario == idusuario)
+        .order_by(Auditoria.criado_em, Auditoria.idauditoria)
+        .all()
+    )
+
+
+def expurgar(db: Session) -> tuple[int, int]:
+    """Apaga o que passou do prazo de guarda. Devolve (auditoria, logerro) removidos."""
+    momento = agora()
+    auditoria = (
+        db.query(Auditoria)
+        .filter(Auditoria.criado_em < momento - timedelta(days=DIAS_RETENCAO_AUDITORIA))
+        .delete(synchronize_session=False)
+    )
+    logerro = (
+        db.query(LogErro)
+        .filter(LogErro.ocorrido_em < momento - timedelta(days=DIAS_RETENCAO_LOGERRO))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return auditoria, logerro
