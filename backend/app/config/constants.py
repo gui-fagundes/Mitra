@@ -23,6 +23,9 @@ MINUTOS_VALIDADE_TOKEN_SENHA = 30
 # Base dos links enviados por e-mail (ex.: redefinição de senha).
 URL_FRONTEND = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
+# Endereço de contato mostrado no rodapé dos e-mails e usado como Reply-To.
+EMAIL_SUPORTE = os.getenv("EMAIL_SUPORTE") or None
+
 # Arquivos enviados pelos usuários (fotos, portfólio). Ficam em disco e são servidos
 # pela própria API em ROTA_ARQUIVOS; no banco guardamos o caminho público
 # ("/arquivos/fotos/<uuid>.jpg"), então dá para trocar por um storage externo depois.

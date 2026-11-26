@@ -20,10 +20,18 @@ async def enviar_email(
         )
         return
 
+    usuario_smtp = os.getenv("SMTP_USER") or None
     mensagem = EmailMessage()
-    mensagem["From"] = os.getenv("SMTP_FROM", "Mitra <nao-responda@mitra.local>")
+    # O Gmail (e a maioria dos provedores) só aceita como remetente a própria conta.
+    mensagem["From"] = (
+        os.getenv("SMTP_FROM")
+        or (f"Mitra <{usuario_smtp}>" if usuario_smtp else None)
+        or "Mitra <nao-responda@mitra.local>"
+    )
     mensagem["To"] = para
     mensagem["Subject"] = assunto
+    if suporte := os.getenv("EMAIL_SUPORTE"):
+        mensagem["Reply-To"] = suporte
     mensagem.set_content(corpo_texto)
     if corpo_html:
         mensagem.add_alternative(corpo_html, subtype="html")
@@ -34,7 +42,7 @@ async def enviar_email(
             mensagem,
             hostname=host,
             port=porta,
-            username=os.getenv("SMTP_USER") or None,
+            username=usuario_smtp,
             password=os.getenv("SMTP_PASSWORD") or None,
             # 465 = TLS direto; nas outras portas o aiosmtplib faz STARTTLS se o servidor oferecer.
             use_tls=porta == 465,

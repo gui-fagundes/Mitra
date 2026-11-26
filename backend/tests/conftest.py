@@ -23,6 +23,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+# Os testes nunca falam com um servidor SMTP de verdade, mesmo com SMTP_HOST no .env
+# (load_dotenv não sobrescreve variáveis já definidas). Quem precisa ver os e-mails
+# usa a fixture `emails`.
+os.environ["SMTP_HOST"] = ""
+
 load_dotenv()
 
 # Uploads dos testes vão para uma pasta temporária. Precisa ser definido antes de
@@ -95,3 +100,17 @@ def api(sessao) -> TestClient:
     with TestClient(app) as cliente_http:
         yield cliente_http
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def emails(monkeypatch) -> list[dict]:
+    """Captura os e-mails que a API mandaria (para, assunto, corpo), na ordem."""
+    from app.utils import email_utils
+
+    enviados: list[dict] = []
+
+    async def _capturar(para, assunto, corpo_texto, corpo_html=None):
+        enviados.append({"para": para, "assunto": assunto, "corpo": corpo_texto})
+
+    monkeypatch.setattr(email_utils, "enviar_email", _capturar)
+    return enviados
