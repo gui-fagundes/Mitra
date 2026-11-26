@@ -1,3 +1,4 @@
+from app.models.auditoria_model import Auditoria
 from app.models.avaliacao_model import Avaliacao
 from app.models.categoria_model import Categoria
 from app.models.cidade_model import Cidade
@@ -12,6 +13,7 @@ from app.models.servico_model import Servico
 from app.models.usuario_model import Usuario
 
 __all__ = [
+    "Auditoria",
     "Avaliacao",
     "Categoria",
     "Cidade",

@@ -13,8 +13,15 @@ from app.config.constants import (
     MINUTOS_VALIDADE_TOKEN_SENHA,
     URL_FRONTEND,
 )
+from app.models.auditoria_model import (
+    CONTA_ENTRAR,
+    CONTA_ENTRAR_FALHOU,
+    EMAIL_VERIFICAR,
+    SENHA_REDEFINIR,
+    SENHA_SOLICITAR,
+)
 from app.models.usuario_model import Usuario
-from app.services import usuario_services
+from app.services import auditoria_services, usuario_services
 from app.utils.data_utils import agora
 from app.utils.seguranca_utils import (
     criar_token,
@@ -37,14 +44,31 @@ def entrar(payload: dict, db: Session) -> Usuario:
 
     usuario = usuario_services.buscar_por_email(payload["email"], db)
     if not usuario or not verificar_senha(payload["senha"], usuario.senha_hash):
+        # A requisição termina em 401 sem commit: o registro é gravado já.
+        auditoria_services.registrar_e_salvar(
+            db,
+            CONTA_ENTRAR_FALHOU,
+            idusuario=usuario.idusuario if usuario else None,
+            dados={
+                "email": payload["email"],
+                "motivo": "senha incorreta" if usuario else "e-mail não cadastrado",
+            },
+        )
         raise credenciais_invalidas
 
     if not usuario.ativo:
+        auditoria_services.registrar_e_salvar(
+            db,
+            CONTA_ENTRAR_FALHOU,
+            idusuario=usuario.idusuario,
+            dados={"email": payload["email"], "motivo": "conta inativa"},
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuário inativo",
         )
 
+    auditoria_services.registrar_e_salvar(db, CONTA_ENTRAR, idusuario=usuario.idusuario)
     return usuario
 
 
@@ -96,6 +120,7 @@ def solicitar_redefinicao_senha(payload: dict, db: Session) -> tuple[Usuario, st
     if not usuario or not usuario.ativo:
         return None
 
+    auditoria_services.registrar_e_salvar(db, SENHA_SOLICITAR, idusuario=usuario.idusuario)
     link = f"{URL_FRONTEND}/redefinir-senha?token={gerar_token_redefinicao(usuario)}"
     return usuario, link
 
@@ -137,6 +162,13 @@ def redefinir_senha(payload: dict, db: Session) -> Usuario:
         raise token_invalido
 
     usuario.senha_hash = gerar_hash_senha(payload["nova_senha"])
+    auditoria_services.registrar(
+        db,
+        SENHA_REDEFINIR,
+        idusuario=usuario.idusuario,
+        entidade="usuario",
+        identidade=usuario.idusuario,
+    )
     db.commit()
     db.refresh(usuario)
 
@@ -204,6 +236,13 @@ def verificar_email(payload: dict, db: Session) -> Usuario:
 
     if usuario.email_verificado_em is None:
         usuario.email_verificado_em = agora()
+        auditoria_services.registrar(
+            db,
+            EMAIL_VERIFICAR,
+            idusuario=usuario.idusuario,
+            entidade="usuario",
+            identidade=usuario.idusuario,
+        )
         db.commit()
         db.refresh(usuario)
     return usuario

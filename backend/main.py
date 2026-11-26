@@ -7,6 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config.constants import DIR_ARQUIVOS, ORIGENS_CORS, ROTA_ARQUIVOS
 from app.config.migrations import aplicar_migracoes
+from app.middlewares.contexto_requisicao import registrar_contexto
 from app.middlewares.sessao_deslizante import renovar_sessao
 from app.middlewares.tratamento_erros import capturar_excecoes
 from app.routes import registrar_rotas
@@ -33,6 +34,8 @@ app.add_middleware(
 # → capturar_excecoes roda por dentro do CORS (headers CORS aplicados mesmo em erro).
 app.add_middleware(BaseHTTPMiddleware, dispatch=capturar_excecoes)
 app.add_middleware(BaseHTTPMiddleware, dispatch=renovar_sessao)
+# Por fora de todos: id e IP da requisição valem também para o log de erros.
+app.add_middleware(BaseHTTPMiddleware, dispatch=registrar_contexto)
 
 registrar_rotas(app)
 

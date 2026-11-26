@@ -28,6 +28,10 @@ URL_FRONTEND = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 # Endereço de contato mostrado no rodapé dos e-mails e usado como Reply-To.
 EMAIL_SUPORTE = os.getenv("EMAIL_SUPORTE") or None
 
+# Atrás de um proxy (deploy), o IP do cliente vem no X-Forwarded-For. Sem proxy,
+# deixe desligado: senão qualquer um escolhe o IP que vai para a auditoria.
+CONFIAR_X_FORWARDED_FOR = os.getenv("CONFIAR_PROXY", "").lower() in ("1", "true", "sim")
+
 # Arquivos enviados pelos usuários (fotos, portfólio). Ficam em disco e são servidos
 # pela própria API em ROTA_ARQUIVOS; no banco guardamos o caminho público
 # ("/arquivos/fotos/<uuid>.jpg"), então dá para trocar por um storage externo depois.

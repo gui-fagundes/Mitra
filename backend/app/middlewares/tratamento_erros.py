@@ -4,6 +4,7 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
 from app.config.dependencies import obter_sessao
+from app.middlewares.contexto_requisicao import contexto_atual
 from app.models.log_erro_model import LogErro
 
 # O traceback completo pode ser enorme (recursão, SQL longo); o começo e o fim bastam.
@@ -26,7 +27,17 @@ def _registrar(requisicao: Request, erro: Exception) -> None:
     gerador = fabrica()
     db = next(gerador)
     try:
-        db.add(LogErro(rota=requisicao.url.path, metodo=requisicao.method, erro=_descrever(erro)))
+        contexto = contexto_atual()
+        db.add(
+            LogErro(
+                rota=requisicao.url.path,
+                metodo=requisicao.method,
+                erro=_descrever(erro),
+                idrequisicao=contexto.idrequisicao,
+                ip=contexto.ip,
+                idusuario=contexto.idusuario,
+            )
+        )
         db.commit()
     except Exception as erro_log:
         db.rollback()

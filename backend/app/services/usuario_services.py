@@ -1,9 +1,10 @@
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.models.auditoria_model import CONTA_CADASTRAR
 from app.models.prestador_perfil_model import PrestadorPerfil
 from app.models.usuario_model import Usuario
-from app.services import cidade_services
+from app.services import auditoria_services, cidade_services
 from app.utils import arquivo_utils
 from app.utils.data_utils import agora
 from app.utils.seguranca_utils import gerar_hash_senha
@@ -44,6 +45,15 @@ def criar_usuario(payload: dict, db: Session) -> Usuario:
         usuario.prestador_perfil = PrestadorPerfil()
 
     db.add(usuario)
+    db.flush()  # precisa do idusuario para a auditoria
+    auditoria_services.registrar(
+        db,
+        CONTA_CADASTRAR,
+        idusuario=usuario.idusuario,
+        entidade="usuario",
+        identidade=usuario.idusuario,
+        dados={"papel": payload.get("papel", "cliente")},
+    )
     db.commit()
     db.refresh(usuario)
 

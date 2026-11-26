@@ -2,12 +2,13 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.auditoria_model import CNPJ_DEFINIR, CNPJ_REMOVER
 from app.models.contratacao_model import Contratacao
 from app.models.conversa_model import Conversa
 from app.models.prestador_perfil_model import PrestadorPerfil
 from app.models.servico_model import Servico
 from app.models.usuario_model import Usuario
-from app.services import avaliacao_services
+from app.services import auditoria_services, avaliacao_services
 from app.utils import cnpj_utils
 from app.utils.cnpj_utils import SituacaoConsulta
 from app.utils.data_utils import agora
@@ -185,8 +186,17 @@ def cadastrar_cnpj(usuario: Usuario, payload: dict, db: Session) -> PrestadorPer
             detail="Não foi possível consultar a Receita agora. Tente de novo em alguns minutos.",
         )
 
+    anterior = perfil.cnpj
     perfil.cnpj = cnpj
     perfil.cnpj_validado_em = agora()
+    auditoria_services.registrar(
+        db,
+        CNPJ_DEFINIR,
+        idusuario=usuario.idusuario,
+        entidade="prestador_perfil",
+        identidade=perfil.idprestadorperfil,
+        dados={"cnpj": [anterior, cnpj]},
+    )
     try:
         db.commit()
     except IntegrityError as e:
@@ -199,6 +209,15 @@ def cadastrar_cnpj(usuario: Usuario, payload: dict, db: Session) -> PrestadorPer
 
 def remover_cnpj(usuario: Usuario, db: Session) -> PrestadorPerfil:
     perfil = obter_vitrine(usuario)
+    if perfil.cnpj is not None:
+        auditoria_services.registrar(
+            db,
+            CNPJ_REMOVER,
+            idusuario=usuario.idusuario,
+            entidade="prestador_perfil",
+            identidade=perfil.idprestadorperfil,
+            dados={"cnpj": [perfil.cnpj, None]},
+        )
     perfil.cnpj = None
     perfil.cnpj_validado_em = None
     db.commit()

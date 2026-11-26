@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.config.constants import COOKIE_TOKEN_ACESSO, MINUTOS_ENTRE_REGISTROS_ACESSO
 from app.config.database import SessaoLocal
+from app.middlewares.contexto_requisicao import contexto_atual
 from app.utils.data_utils import agora
 from app.utils.seguranca_utils import decodificar_token, e_token_de_sessao
 
@@ -45,6 +46,8 @@ def obter_usuario_logado(
     if not usuario or not usuario.ativo:
         raise nao_autenticado
 
+    # Auditoria e log de erros desta requisição passam a saber quem é o usuário.
+    contexto_atual().idusuario = usuario.idusuario
     _registrar_acesso(usuario, db)
 
     return usuario
