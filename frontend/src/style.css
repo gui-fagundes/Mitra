@@ -74,6 +74,26 @@ body {
   background-color: var(--color-ph);
 }
 
+/* Tudo que responde a clique mostra a mãozinha. O Tailwind v4 tirou o
+   cursor: pointer dos botões; links com href já têm por padrão do navegador.
+   Fica em @layer base para que utilitários (cursor-grab, disabled:…) ainda vençam. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  select:not(:disabled),
+  summary,
+  input:is([type="checkbox"], [type="radio"], [type="file"], [type="submit"]):not(:disabled),
+  label:has(input:is([type="checkbox"], [type="radio"], [type="file"]):not(:disabled)) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:is([type="checkbox"], [type="radio"], [type="submit"]):disabled {
+    cursor: not-allowed;
+  }
+}
+
 /* Focus visível acessível em todo interativo */
 :where(button, a, input, select, textarea):focus-visible {
   outline: 2px solid var(--color-ink);
