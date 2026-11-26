@@ -76,6 +76,16 @@ def testar() -> int:
     return _executar(["pytest", *sys.argv[1:]])
 
 
+def cobertura() -> int:
+    """Roda pytest com cobertura: resumo no terminal + relatório em htmlcov/index.html.
+
+    Argumentos extras vão para o pytest (ex.: `uv run cobertura --cov=app/services`).
+    """
+    return _executar(
+        ["pytest", "--cov", "--cov-report=term-missing", "--cov-report=html", *sys.argv[1:]]
+    )
+
+
 def verificar() -> int:
     """Roda ruff check (lint) no projeto."""
     return _executar(["ruff", "check", "."])

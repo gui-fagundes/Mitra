@@ -27,6 +27,7 @@ reverter = "app.cli:reverter"
 criar-migracao = "app.cli:criar_migracao"
 expurgar-registros = "app.cli:expurgar_registros"
 testar = "app.cli:testar"
+cobertura = "app.cli:cobertura"
 verificar = "app.cli:verificar"
 formatar = "app.cli:formatar"
 
@@ -42,6 +43,7 @@ dev = [
     "httpx2>=2.10.0",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.14.0",
 ]
 
@@ -67,3 +69,13 @@ ignore = [
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra"
+
+[tool.coverage.run]
+source = ["app"]
+branch = true          # mede também os dois lados de cada if, não só as linhas
+omit = ["app/cli.py"]  # comandos de terminal, fora da API
+
+[tool.coverage.report]
+show_missing = true    # mostra as linhas não cobertas
+skip_covered = true    # esconde os arquivos com 100%
+exclude_also = ["if TYPE_CHECKING:"]
