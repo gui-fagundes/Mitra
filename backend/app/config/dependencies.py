@@ -58,3 +58,19 @@ def _registrar_acesso(usuario, db: Session) -> None:
     if usuario.ultimo_acesso_em is None or momento - usuario.ultimo_acesso_em >= intervalo:
         usuario.ultimo_acesso_em = momento
         db.commit()
+
+
+def obter_usuario_verificado(usuario=Depends(obter_usuario_logado)):
+    """Como obter_usuario_logado, mas exige e-mail confirmado (RF-ID-01).
+
+    Usado em quem escreve para outras pessoas: iniciar contato, mandar mensagem e
+    propor contratação.
+    """
+    if usuario.email_verificado_em is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Confirme seu e-mail para enviar mensagens. Enviamos um link para {usuario.email}."
+            ),
+        )
+    return usuario

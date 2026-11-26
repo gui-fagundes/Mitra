@@ -36,6 +36,13 @@ const router = createRouter({
       component: () => import('./views/RedefinirSenha.vue'),
     },
 
+    {
+      // Sem guestOnly: o link do e-mail abre com ou sem sessão.
+      path: '/verificar-email',
+      name: 'verificar-email',
+      component: () => import('./views/VerificarEmail.vue'),
+    },
+
     // Área logada
     {
       path: '/conta/cliente',

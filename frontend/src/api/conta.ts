@@ -9,6 +9,8 @@ export interface Usuario {
   foto_url: string | null
   cidade: Cidade | null
   aceite_termos_em: string | null
+  /** Null até abrir o link do e-mail de cadastro; sem confirmar, não envia mensagens. */
+  email_verificado_em: string | null
   notificar_email: boolean
   busca_somente_cnpj: boolean
   /** Tem vitrine de prestador. Todo usuário pode contratar. */
@@ -70,6 +72,12 @@ export const contaApi = {
   /** Sempre resolve (204), exista ou não conta com o e-mail. */
   esqueciSenha: (email: string) =>
     api.post<void>('/conta/senha/esqueci', { email }).then(() => undefined),
+
+  /** Confirma o e-mail com o token do link (não exige estar logado). */
+  verificarEmail: (token: string) =>
+    api.post<void>('/conta/email/verificar', { token }).then(() => undefined),
+
+  reenviarVerificacao: () => api.post<void>('/conta/email/reenviar').then(() => undefined),
 
   redefinirSenha: (token: string, novaSenha: string) =>
     api

@@ -6,7 +6,10 @@ from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.config.constants import (
+    EMAIL_SUPORTE,
     FINALIDADE_TOKEN_REDEFINIR_SENHA,
+    FINALIDADE_TOKEN_VERIFICAR_EMAIL,
+    HORAS_VALIDADE_TOKEN_VERIFICACAO,
     MINUTOS_VALIDADE_TOKEN_SENHA,
     URL_FRONTEND,
 )
@@ -138,3 +141,78 @@ def redefinir_senha(payload: dict, db: Session) -> Usuario:
     db.refresh(usuario)
 
     return usuario
+
+
+# --- Verificação de e-mail (RF-ID-01) --------------------------------------------
+#
+# Também stateless: o token carrega o e-mail para o qual foi emitido. Usar o link de
+# novo depois de verificado não faz nada; se o e-mail da conta mudar, o link antigo
+# deixa de valer.
+
+
+def gerar_token_verificacao(usuario: Usuario) -> str:
+    expira_em = agora() + timedelta(hours=HORAS_VALIDADE_TOKEN_VERIFICACAO)
+    return criar_token(
+        {
+            "sub": str(usuario.idusuario),
+            "finalidade": FINALIDADE_TOKEN_VERIFICAR_EMAIL,
+            "email": usuario.email,
+            "exp": int(expira_em.timestamp()),
+        }
+    )
+
+
+def montar_email_verificacao(usuario: Usuario) -> tuple[str, str]:
+    """(assunto, corpo em texto) do e-mail com o link de confirmação."""
+    link = f"{URL_FRONTEND}/verificar-email?token={gerar_token_verificacao(usuario)}"
+    assunto = "Confirme seu e-mail · Mitra"
+    corpo = (
+        f"Olá, {usuario.nome}.\n\n"
+        "Falta só confirmar que este e-mail é seu. Abra o link abaixo "
+        f"(válido por {HORAS_VALIDADE_TOKEN_VERIFICACAO} horas):\n\n"
+        f"{link}\n\n"
+        "Enquanto o e-mail não for confirmado, você pode navegar e montar seu perfil, "
+        "mas não consegue enviar mensagens.\n\n"
+        "Se você não criou uma conta no Mitra, ignore este e-mail.\n"
+    )
+    if EMAIL_SUPORTE:
+        corpo += f"\nDúvidas: {EMAIL_SUPORTE}\n"
+    return assunto, corpo
+
+
+def verificar_email(payload: dict, db: Session) -> Usuario:
+    token_invalido = HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="Link de confirmação inválido ou expirado. Peça um novo.",
+    )
+
+    try:
+        dados = decodificar_token(payload["token"])
+    except JWTError as e:
+        raise token_invalido from e
+
+    if (
+        not dados
+        or dados.get("finalidade") != FINALIDADE_TOKEN_VERIFICAR_EMAIL
+        or "sub" not in dados
+    ):
+        raise token_invalido
+
+    usuario = db.get(Usuario, int(dados["sub"]))
+    if not usuario or not usuario.ativo or dados.get("email") != usuario.email:
+        raise token_invalido
+
+    if usuario.email_verificado_em is None:
+        usuario.email_verificado_em = agora()
+        db.commit()
+        db.refresh(usuario)
+    return usuario
+
+
+def exigir_email_pendente(usuario: Usuario) -> None:
+    """Para o reenvio do link: 409 se o e-mail já está confirmado."""
+    if usuario.email_verificado_em is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Seu e-mail já está confirmado",
+        )

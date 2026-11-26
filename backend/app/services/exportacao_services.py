@@ -46,6 +46,7 @@ def _conta(usuario: Usuario, url_base: str) -> dict:
         "notificar_email": usuario.notificar_email,
         "busca_somente_cnpj": usuario.busca_somente_cnpj,
         "aceite_termos_em": usuario.aceite_termos_em,
+        "email_verificado_em": usuario.email_verificado_em,
         "criado_em": usuario.criado_em,
         "ultimo_acesso_em": usuario.ultimo_acesso_em,
         "ativo": usuario.ativo,

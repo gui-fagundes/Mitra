@@ -19,6 +19,8 @@ COOKIE_TOKEN_ACESSO = "token_acesso"
 FINALIDADE_TOKEN_SESSAO = "sessao"
 FINALIDADE_TOKEN_REDEFINIR_SENHA = "redefinir_senha"
 MINUTOS_VALIDADE_TOKEN_SENHA = 30
+FINALIDADE_TOKEN_VERIFICAR_EMAIL = "verificar_email"
+HORAS_VALIDADE_TOKEN_VERIFICACAO = 48
 
 # Base dos links enviados por e-mail (ex.: redefinição de senha).
 URL_FRONTEND = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")

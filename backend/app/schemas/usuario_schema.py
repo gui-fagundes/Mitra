@@ -59,6 +59,10 @@ class RedefinirSenhaEntrada(BaseModel):
     nova_senha: str = Field(min_length=8, max_length=128)
 
 
+class VerificarEmailEntrada(BaseModel):
+    token: str
+
+
 class UsuarioResposta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,6 +73,7 @@ class UsuarioResposta(BaseModel):
     foto_url: str | None
     cidade: CidadeResposta | None
     aceite_termos_em: datetime | None
+    email_verificado_em: datetime | None
     notificar_email: bool
     busca_somente_cnpj: bool
     e_prestador: bool

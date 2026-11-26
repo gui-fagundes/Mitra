@@ -90,16 +90,32 @@ def sessao(engine) -> Session:
 @pytest.fixture()
 def api(sessao) -> TestClient:
     """TestClient com obter_sessao sobrescrito para usar a sessão transacional do teste."""
-    from app.config.dependencies import obter_sessao
+    from app.config.dependencies import (
+        obter_sessao,
+        obter_usuario_logado,
+        obter_usuario_verificado,
+    )
     from main import app
 
     def _obter_sessao_teste():
         yield sessao
 
     app.dependency_overrides[obter_sessao] = _obter_sessao_teste
+    # As contas criadas nos testes não confirmam o e-mail; a exigência de e-mail
+    # confirmado é testada à parte, com a fixture `verificacao_obrigatoria`.
+    app.dependency_overrides[obter_usuario_verificado] = obter_usuario_logado
     with TestClient(app) as cliente_http:
         yield cliente_http
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def verificacao_obrigatoria(api):
+    """Volta a exigir e-mail confirmado para iniciar contato, mandar mensagem e propor."""
+    from app.config.dependencies import obter_usuario_verificado
+    from main import app
+
+    app.dependency_overrides.pop(obter_usuario_verificado, None)
 
 
 @pytest.fixture()

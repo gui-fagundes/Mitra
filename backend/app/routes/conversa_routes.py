@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
-from app.config.dependencies import obter_sessao, obter_usuario_logado
+from app.config.dependencies import obter_sessao, obter_usuario_logado, obter_usuario_verificado
 from app.models.usuario_model import Usuario
 from app.schemas.conversa_schema import (
     ConversaCriacao,
@@ -19,7 +19,7 @@ rotas_conversa = APIRouter(prefix="/conversas", tags=["Conversas"])
 def iniciar_conversa(
     corpo: ConversaCriacao,
     resposta: Response,
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(obter_usuario_verificado),
     db: Session = Depends(obter_sessao),
 ):
     """Inicia contato com um prestador. Se a conversa já existe, só envia a mensagem (200)."""
@@ -64,7 +64,7 @@ def listar_mensagens(
 def enviar_mensagem(
     idconversa: int,
     corpo: MensagemEntrada,
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(obter_usuario_verificado),
     db: Session = Depends(obter_sessao),
 ):
     return conversa_services.enviar(usuario_logado, idconversa, corpo.model_dump(), db)

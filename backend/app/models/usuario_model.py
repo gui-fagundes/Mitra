@@ -24,6 +24,8 @@ class Usuario(Base, SerializavelMixin):
     )
     # RF-DP-01. Nullable só por causa de contas criadas antes do aceite existir.
     aceite_termos_em = Column(DateTime, nullable=True)
+    # RF-ID-01. Nulo até o usuário abrir o link enviado no cadastro.
+    email_verificado_em = Column(DateTime, nullable=True)
     notificar_email = Column(Boolean, nullable=False, default=True, server_default=true())
     busca_somente_cnpj = Column(Boolean, nullable=False, default=False, server_default=false())
     # Atualizado em obter_usuario_logado (no máx. 1× a cada 5 min); alimenta o ranking.

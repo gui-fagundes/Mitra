@@ -131,6 +131,12 @@ onMounted(async () => {
           disabled
           title="A troca de e-mail ainda não está disponível."
           class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm text-muted" />
+        <span v-if="sessao.usuario?.email_verificado_em" class="text-[12px] text-good">
+          <i class="fa fa-check mr-1"></i>Confirmado
+        </span>
+        <span v-else-if="sessao.usuario?.email_verificado_em === null" class="text-[12px] text-muted">
+          Ainda não confirmado: veja o link na sua caixa de entrada.
+        </span>
       </label>
       <label class="flex flex-col gap-1.5">
         <span class="mono-sm">Cidade</span>

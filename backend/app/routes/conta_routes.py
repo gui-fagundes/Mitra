@@ -12,6 +12,7 @@ from app.schemas.usuario_schema import (
     UsuarioAtualizacao,
     UsuarioCriacao,
     UsuarioResposta,
+    VerificarEmailEntrada,
 )
 from app.services import conta_services, exportacao_services
 from app.utils import email_utils
@@ -21,9 +22,16 @@ rotas_conta = APIRouter(prefix="/conta", tags=["Conta"])
 
 
 @rotas_conta.post("/cadastro", response_model=UsuarioResposta)
-def cadastrar(corpo: UsuarioCriacao, resposta: Response, db: Session = Depends(obter_sessao)):
+def cadastrar(
+    corpo: UsuarioCriacao,
+    resposta: Response,
+    tarefas: BackgroundTasks,
+    db: Session = Depends(obter_sessao),
+):
     usuario = conta_services.cadastrar(corpo.model_dump(), db)
     gravar_cookie_sessao(resposta, conta_services.gerar_token(usuario))
+    assunto, texto = conta_services.montar_email_verificacao(usuario)
+    tarefas.add_task(email_utils.enviar_email, usuario.email, assunto, texto)
     return usuario
 
 
@@ -68,6 +76,22 @@ def remover_foto(
     db: Session = Depends(obter_sessao),
 ):
     return conta_services.remover_foto(usuario_logado, db)
+
+
+@rotas_conta.post("/email/verificar", status_code=204)
+def verificar_email(corpo: VerificarEmailEntrada, db: Session = Depends(obter_sessao)):
+    """RF-ID-01: confirma o e-mail com o token do link. Não exige estar logado."""
+    conta_services.verificar_email(corpo.model_dump(), db)
+
+
+@rotas_conta.post("/email/reenviar", status_code=204)
+def reenviar_verificacao(
+    tarefas: BackgroundTasks,
+    usuario_logado: Usuario = Depends(obter_usuario_logado),
+):
+    conta_services.exigir_email_pendente(usuario_logado)
+    assunto, texto = conta_services.montar_email_verificacao(usuario_logado)
+    tarefas.add_task(email_utils.enviar_email, usuario_logado.email, assunto, texto)
 
 
 @rotas_conta.post("/senha/esqueci", status_code=204)

@@ -3,7 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.config.dependencies import obter_sessao, obter_usuario_logado
+from app.config.dependencies import obter_sessao, obter_usuario_logado, obter_usuario_verificado
 from app.models.usuario_model import Usuario
 from app.schemas.contratacao_schema import (
     CancelamentoEntrada,
@@ -26,7 +26,7 @@ rotas_contratacao_da_conversa = APIRouter(prefix="/conversas", tags=["Contrataç
 def propor(
     idconversa: int,
     corpo: PropostaEntrada,
-    usuario_logado: Usuario = Depends(obter_usuario_logado),
+    usuario_logado: Usuario = Depends(obter_usuario_verificado),
     db: Session = Depends(obter_sessao),
 ):
     """Cliente ou prestador propõe a prestação (RF-CO-01). 409 se já há uma aberta."""
