@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Aba "Dados da conta" — comum às áreas do cliente e do prestador:
-// foto (upload direto) + nome, cidade e telefone (PATCH /conta).
+// foto (upload direto) + nome, cidade, telefone e avisos por e-mail (PATCH /conta).
 import { onMounted, ref, watch } from 'vue'
 import { cidadeApi, rotuloCidade, type Cidade } from '../api/cidade'
 import { BASE_API, ErroApi } from '../api/client'
@@ -14,6 +14,7 @@ const cidades = ref<Cidade[]>([])
 const nome = ref('')
 const idcidade = ref<number | null>(null)
 const telefone = ref('')
+const notificarEmail = ref(true)
 const salvando = ref(false)
 const mensagem = ref<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
 const enviandoFoto = ref(false)
@@ -24,6 +25,7 @@ function preencher(usuario: Usuario | null) {
   nome.value = usuario.nome
   idcidade.value = usuario.cidade?.idcidade ?? null
   telefone.value = usuario.telefone ?? ''
+  notificarEmail.value = usuario.notificar_email ?? true
 }
 
 watch(() => sessao.usuario, preencher, { immediate: true })
@@ -41,6 +43,7 @@ async function salvar() {
         nome: nome.value,
         idcidade: idcidade.value,
         telefone: telefone.value || null,
+        notificar_email: notificarEmail.value,
       }),
     )
     mensagem.value = { tipo: 'ok', texto: 'Alterações salvas.' }
@@ -156,6 +159,16 @@ onMounted(async () => {
           class="h-11 rounded-lg border border-rule bg-bg px-3 text-sm" />
       </label>
     </div>
+
+    <label class="mt-4 flex items-start gap-2.5 text-sm">
+      <input v-model="notificarEmail" type="checkbox" class="mt-0.5" />
+      <span>
+        Receber avisos por e-mail
+        <span class="block text-[12px] text-muted">
+          Novo contato, mensagens, propostas, conclusão do serviço e avaliações.
+        </span>
+      </span>
+    </label>
 
     <slot />
 

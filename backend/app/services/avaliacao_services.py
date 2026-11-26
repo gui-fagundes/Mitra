@@ -12,7 +12,7 @@ from app.models.avaliacao_model import Avaliacao
 from app.models.contratacao_model import Contratacao
 from app.models.conversa_model import Conversa
 from app.models.usuario_model import Usuario
-from app.services import conversa_services
+from app.services import conversa_services, notificacao_services
 from app.utils.data_utils import agora
 
 DIAS_PARA_AVALIAR = 30
@@ -172,6 +172,7 @@ def avaliar(usuario: Usuario, idcontratacao: int, payload: dict, db: Session) ->
         db,
         tipo="evento",
         idcontratacao=contratacao.idcontratacao,
+        motivo=notificacao_services.AVALIACAO,
     )
     try:
         db.commit()

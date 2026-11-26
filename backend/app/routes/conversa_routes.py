@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.config.dependencies import obter_sessao, obter_usuario_logado, obter_usuario_verificado
@@ -10,7 +10,7 @@ from app.schemas.conversa_schema import (
     MensagemResposta,
     PaginaMensagensResposta,
 )
-from app.services import conversa_services
+from app.services import conversa_services, notificacao_services
 
 rotas_conversa = APIRouter(prefix="/conversas", tags=["Conversas"])
 
@@ -19,11 +19,13 @@ rotas_conversa = APIRouter(prefix="/conversas", tags=["Conversas"])
 def iniciar_conversa(
     corpo: ConversaCriacao,
     resposta: Response,
+    tarefas: BackgroundTasks,
     usuario_logado: Usuario = Depends(obter_usuario_verificado),
     db: Session = Depends(obter_sessao),
 ):
     """Inicia contato com um prestador. Se a conversa já existe, só envia a mensagem (200)."""
     conversa, criou = conversa_services.iniciar(usuario_logado, corpo.model_dump(), db)
+    notificacao_services.agendar(tarefas, db)
     if not criou:
         resposta.status_code = 200
     return conversa
@@ -64,7 +66,10 @@ def listar_mensagens(
 def enviar_mensagem(
     idconversa: int,
     corpo: MensagemEntrada,
+    tarefas: BackgroundTasks,
     usuario_logado: Usuario = Depends(obter_usuario_verificado),
     db: Session = Depends(obter_sessao),
 ):
-    return conversa_services.enviar(usuario_logado, idconversa, corpo.model_dump(), db)
+    mensagem = conversa_services.enviar(usuario_logado, idconversa, corpo.model_dump(), db)
+    notificacao_services.agendar(tarefas, db)
+    return mensagem

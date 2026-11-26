@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.conversa_model import Conversa
 from app.models.mensagem_model import Mensagem
 from app.models.usuario_model import Usuario
+from app.services import notificacao_services
 from app.utils.data_utils import agora
 
 
@@ -43,8 +44,13 @@ def adicionar_mensagem(
     db: Session,
     tipo: str = "texto",
     idcontratacao: int | None = None,
+    motivo: str | None = None,
 ) -> Mensagem:
-    """Acrescenta a mensagem e move a conversa para o topo. Não faz commit."""
+    """Acrescenta a mensagem e move a conversa para o topo. Não faz commit.
+
+    A mensagem fica anotada para o aviso por e-mail à outra parte; `motivo` muda o
+    assunto do aviso (padrão: mensagem para texto, contratação para evento).
+    """
     mensagem = Mensagem(
         idconversa=conversa.idconversa,
         idautor=idautor,
@@ -54,6 +60,11 @@ def adicionar_mensagem(
     )
     db.add(mensagem)
     conversa.atualizado_em = agora()
+    if motivo is None:
+        motivo = (
+            notificacao_services.MENSAGEM if tipo == "texto" else notificacao_services.CONTRATACAO
+        )
+    notificacao_services.anotar(db, conversa, mensagem, motivo)
     return mensagem
 
 
@@ -109,7 +120,13 @@ def iniciar(usuario: Usuario, payload: dict, db: Session) -> tuple[dict, bool]:
         db.add(conversa)
         db.flush()  # precisa do idconversa para a mensagem
 
-    mensagem = adicionar_mensagem(conversa, usuario.idusuario, texto, db)
+    mensagem = adicionar_mensagem(
+        conversa,
+        usuario.idusuario,
+        texto,
+        db,
+        motivo=notificacao_services.CONTATO if criou else None,
+    )
     db.commit()
     db.refresh(conversa)
     db.refresh(mensagem)

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 from app.config.dependencies import obter_sessao, obter_usuario_logado, obter_usuario_verificado
@@ -13,7 +13,7 @@ from app.schemas.contratacao_schema import (
     PropostaAtualizacao,
     PropostaEntrada,
 )
-from app.services import contratacao_services
+from app.services import contratacao_services, notificacao_services
 
 rotas_contratacao = APIRouter(prefix="/contratacoes", tags=["Contratações"])
 # A proposta nasce dentro de uma conversa.
@@ -26,11 +26,14 @@ rotas_contratacao_da_conversa = APIRouter(prefix="/conversas", tags=["Contrataç
 def propor(
     idconversa: int,
     corpo: PropostaEntrada,
+    tarefas: BackgroundTasks,
     usuario_logado: Usuario = Depends(obter_usuario_verificado),
     db: Session = Depends(obter_sessao),
 ):
     """Cliente ou prestador propõe a prestação (RF-CO-01). 409 se já há uma aberta."""
-    return contratacao_services.propor(usuario_logado, idconversa, corpo.model_dump(), db)
+    resultado = contratacao_services.propor(usuario_logado, idconversa, corpo.model_dump(), db)
+    notificacao_services.agendar(tarefas, db)
+    return resultado
 
 
 @rotas_contratacao_da_conversa.get(
@@ -67,41 +70,53 @@ def obter(
 def editar_proposta(
     idcontratacao: int,
     corpo: PropostaAtualizacao,
+    tarefas: BackgroundTasks,
     usuario_logado: Usuario = Depends(obter_usuario_logado),
     db: Session = Depends(obter_sessao),
 ):
-    return contratacao_services.editar_proposta(
+    resultado = contratacao_services.editar_proposta(
         usuario_logado, idcontratacao, corpo.model_dump(exclude_unset=True), db
     )
+    notificacao_services.agendar(tarefas, db)
+    return resultado
 
 
 @rotas_contratacao.post("/{idcontratacao}/aceitar", response_model=ContratacaoResposta)
 def aceitar(
     idcontratacao: int,
+    tarefas: BackgroundTasks,
     usuario_logado: Usuario = Depends(obter_usuario_logado),
     db: Session = Depends(obter_sessao),
 ):
-    return contratacao_services.aceitar(usuario_logado, idcontratacao, db)
+    resultado = contratacao_services.aceitar(usuario_logado, idcontratacao, db)
+    notificacao_services.agendar(tarefas, db)
+    return resultado
 
 
 @rotas_contratacao.post("/{idcontratacao}/concluir", response_model=ContratacaoResposta)
 def confirmar_conclusao(
     idcontratacao: int,
     corpo: ConclusaoEntrada,
+    tarefas: BackgroundTasks,
     usuario_logado: Usuario = Depends(obter_usuario_logado),
     db: Session = Depends(obter_sessao),
 ):
     """Confirmação bilateral de conclusão (RF-CO-04), com o preço cobrado."""
-    return contratacao_services.confirmar_conclusao(
+    resultado = contratacao_services.confirmar_conclusao(
         usuario_logado, idcontratacao, corpo.model_dump(exclude_unset=True), db
     )
+    notificacao_services.agendar(tarefas, db)
+    return resultado
 
 
 @rotas_contratacao.post("/{idcontratacao}/cancelar", response_model=ContratacaoResposta)
 def cancelar(
     idcontratacao: int,
     corpo: CancelamentoEntrada,
+    tarefas: BackgroundTasks,
     usuario_logado: Usuario = Depends(obter_usuario_logado),
     db: Session = Depends(obter_sessao),
 ):
-    return contratacao_services.cancelar(usuario_logado, idcontratacao, corpo.model_dump(), db)
+    resultado = contratacao_services.cancelar(usuario_logado, idcontratacao, corpo.model_dump(), db)
+    notificacao_services.agendar(tarefas, db)
+    return resultado

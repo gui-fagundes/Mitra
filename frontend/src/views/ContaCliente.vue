@@ -16,11 +16,9 @@ type Aba = 'contratacoes' | 'dados' | 'preferencias'
 const aba = ref<Aba>('contratacoes')
 
 // Preferências — PATCH /conta (os dados da conta ficam em FormularioDadosConta)
-const notificarEmail = ref(true)
 const buscaSomenteCnpj = ref(false)
 
 function preencherPreferencias(usuario: Usuario) {
-  notificarEmail.value = usuario.notificar_email ?? true
   buscaSomenteCnpj.value = usuario.busca_somente_cnpj ?? false
 }
 
@@ -170,18 +168,11 @@ async function sair() {
               Preferências
             </h1>
             <div class="mt-0.5 text-[13px] text-muted">
-              Como quer receber avisos e o que exibir por padrão.
+              O que exibir por padrão na busca.
             </div>
           </div>
 
           <div class="space-y-3 rounded-2xl border border-rule bg-surface p-6">
-            <label class="flex items-center justify-between border-b border-rule-soft py-3">
-              <span class="text-sm">Notificações por e-mail</span>
-              <input
-                v-model="notificarEmail"
-                type="checkbox"
-                @change="salvarPreferencia({ notificar_email: notificarEmail })" />
-            </label>
             <label class="flex items-center justify-between py-3">
               <span class="text-sm">Somente prestadores com CNPJ validado</span>
               <input
