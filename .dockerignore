@@ -1,0 +1,6 @@
+# Contexto do build do frontend (deploy/web.Dockerfile): só o necessário.
+*
+!frontend/
+!deploy/Caddyfile
+frontend/node_modules/
+frontend/dist/

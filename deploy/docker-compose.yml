@@ -1,0 +1,56 @@
+# Mitra em produção num único servidor (ver deploy/README.md).
+# Rode de dentro de deploy/:  docker compose up -d --build
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mitra
+      POSTGRES_USER: mitra
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no deploy/.env}
+    volumes:
+      - dados_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mitra -d mitra"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://mitra:${POSTGRES_PASSWORD}@db:5432/mitra
+      ENV: production
+      FRONTEND_URL: https://${DOMINIO}
+      CORS_ORIGINS: https://${DOMINIO}
+      UPLOADS_DIR: /dados/arquivos
+    volumes:
+      - arquivos:/dados/arquivos
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO:?defina DOMINIO no deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_dados:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  dados_db:
+  arquivos:
+  caddy_dados:
+  caddy_config:

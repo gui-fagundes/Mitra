@@ -56,3 +56,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Backups gerados no servidor (deploy/backup.sh)
+deploy/backups/

@@ -1,0 +1,22 @@
+# Um endereço só para frontend e API: o cookie de sessão continua de primeira parte
+# (SameSite=Lax funciona em qualquer navegador). HTTPS automático via Let's Encrypt.
+{$DOMINIO} {
+	encode gzip
+
+	# O frontend chama a API em /api (como no proxy do Vite); o prefixo é removido.
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+
+	# Links absolutos da exportação LGPD apontam para /arquivos/... direto.
+	handle /arquivos/* {
+		reverse_proxy api:8000
+	}
+
+	# Aplicação Vue (SPA): rotas desconhecidas caem no index.html.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
