@@ -137,7 +137,52 @@ cd /root/Mitra && git pull
 cd deploy && docker compose up -d --build
 ```
 
+Ou, com o mesmo efeito e conferindo se a API voltou:
+
+```bash
+/root/Mitra/deploy/atualizar.sh
+```
+
 As migrações novas são aplicadas sozinhas quando a API sobe.
+
+### Deploy automático (GitHub Actions)
+
+O workflow `.github/workflows/ci-deploy.yml` roda lint, testes e build a cada push.
+Na `main`, se tudo passar, ele entra no servidor e roda `deploy/atualizar.sh`
+(o mesmo `git pull` + `docker compose up -d --build`, conferindo se a API voltou).
+
+Configuração, uma vez só:
+
+**a) Chave só para o deploy, sem passphrase** (no seu computador, PowerShell):
+
+```bash
+ssh-keygen -t ed25519 -N '""' -C "deploy-github" -f "$env:USERPROFILE\.ssh\mitra_deploy"
+```
+
+**b) Autorizar a chave no servidor, presa a um único comando.** Copie a pública
+(`Get-Content "$env:USERPROFILE\.ssh\mitra_deploy.pub" | Set-Clipboard`) e, no servidor:
+
+```bash
+echo 'command="/root/Mitra/deploy/atualizar.sh",restrict COLE_A_CHAVE_PUBLICA_AQUI' >> /root/.ssh/authorized_keys
+```
+
+Com `command=` e `restrict`, essa chave não abre terminal nem roda outra coisa:
+qualquer conexão com ela só executa o script de atualização.
+
+**c) Secrets do repositório** (GitHub → Settings → Secrets and variables → Actions →
+New repository secret):
+
+| Nome | Valor |
+|---|---|
+| `DEPLOY_HOST` | IP do Droplet |
+| `DEPLOY_SSH_KEY` | conteúdo inteiro de `mitra_deploy` (a **privada**, sem `.pub`) |
+| `DEPLOY_KNOWN_HOSTS` | saída de `ssh-keyscan -t ed25519 IP_DO_DROPLET` (garante que o GitHub fala com o seu servidor) |
+
+**d) Testar:** aba **Actions → CI e deploy → Run workflow** na `main`.
+
+Para **pausar o deploy automático** , crie em **Variables** a variável `DEPLOY_AUTOMATICO` com valor `false`.
+Os testes continuam rodando a cada push, e o botão **Run workflow** ainda publica
+quando você quiser. Apague a variável para voltar ao automático.
 
 ## 10. Encerrar (depois da defesa)
 
